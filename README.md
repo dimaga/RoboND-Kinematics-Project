@@ -27,13 +27,20 @@ You're reading it!
 ### Kinematic Analysis
 #### 1. Run the forward_kinematics demo and evaluate the kr210.urdf.xacro file to perform kinematic analysis of Kuka KR210 robot and derive its DH parameters.
 
-DH-compatible model, explaining joints reference frame models is given below:
+Here is a sketch of DH-compatible reference frames.
+
+Note that I have changed orientation of reference frame (3) so that X3 points in
+the direction of origin (4). This is required to keep a3 positive, which, unlike d3, is
+not signed distance, according to the lesson description.
+
+The reference frame of the end effector (gripper) is aligned with the reference frame of
+joint 6 so that only translation component along z axis is needed to be applied.
 
 ![alt text][dh-model]
 
 #### 2. Using the DH parameter table you derived earlier, create individual transformation matrices about each joint. In addition, also generate a generalized homogeneous transform between base_link and gripper_link using only end-effector(gripper) pose.
 
-Links | alpha(i-1) | a(i-1) | d(i) | theta(i)
+Transformations | alpha(i-1) | a(i-1) | d(i) | theta(i)
 --- | --- | --- | --- | ---
 0->1 | 0 | 0 | L1 | qi
 1->2 | - pi/2 | L2 | 0 | -pi/2 + q2

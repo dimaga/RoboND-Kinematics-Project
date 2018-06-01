@@ -24,10 +24,15 @@ def get_ee_2_wc(joints):
     four_2_three = get_dh_transform(pi / 2, 0.054, -1.1, pi + joints[3])
     five_2_four = get_dh_transform(pi / 2, 0.0, 0.0, joints[4])
     six_2_five = get_dh_transform(-pi / 2, 0.0, 0.0, joints[5])
-    ee_2_six = get_dh_transform(0.0, 0.0, 0.2305, 0.0)
+
+    ee_2_six = Matrix([
+        [0.0, 0.0, 1.0, 0.0],
+        [0.0, -1.0, 0.0, 0.0],
+        [1.0, 0.0, 0.0, 0.2305],
+        [0.0, 0.0, 0.0, 1.0],
+    ])
 
     result = simplify(four_2_three * five_2_four * six_2_five * ee_2_six)
-    print(result)
     return result
 
 
@@ -38,7 +43,6 @@ def get_wc_2_base(joints):
     three_2_two = get_dh_transform(0.0, 1.25, 0.0, pi + joints[2])
 
     result = simplify(one_2_zero * two_2_one * three_2_two)
-    print(result)
     return result
 
 
@@ -53,12 +57,14 @@ def get_dh_transform(alpha, a, d, theta):
         [cos_theta, -sin_theta, 0, a],
         [sin_theta * cos_alpha, cos_theta * cos_alpha, -sin_alpha, -sin_alpha * d],
         [sin_theta * sin_alpha, cos_theta * sin_alpha, cos_alpha, cos_alpha * d],
-        [0.0, 0.0, 0.0, 1.0]
+        [0.0, 0.0, 0.0, 1.0],
     ])
 
 
 JOINTS = symbols('JOINTS0:6')
-FULL_TRANSFORM = get_wc_2_base(JOINTS) * get_ee_2_wc(JOINTS)
+WC_2_BASE = get_wc_2_base(JOINTS)
+EE_2_WC = get_ee_2_wc(JOINTS)
+FULL_TRANSFORM = WC_2_BASE * EE_2_WC
 
 
 def handle_calculate_IK(req):

@@ -42,13 +42,13 @@ joint 6 so that only translation component along z axis is needed to be applied.
 
 Transformations | alpha(i-1) | a(i-1) | d(i) | theta(i)
 --- | --- | --- | --- | ---
-0->1 | 0 | 0 | L1 | qi
-1->2 | - pi/2 | L2 | 0 | -pi/2 + q2
-2->3 | 0 | 0 | 0 | 0
-3->4 |  0 | 0 | 0 | 0
-4->5 | 0 | 0 | 0 | 0
-5->6 | 0 | 0 | 0 | 0
-6->EE | 0 | 0 | 0 | 0
+1->0 | 0 | 0 | -0.75 | JOINTS[0]
+2->1 | -pi/2 | 0.35 | 0 | -pi/2 + JOINTS[1]
+3->2 | 0 | 1.25 | 0 | pi + JOINTS[2]
+4->3 |  pi/2 | 0.054 | -1.1 | pi + JOINTS[3]
+5->4 | pi/2 | 0 | 0 | JOINTS[4]
+6->5 | -pi/2 | 0 | 0 | JOINTS[5]
+EE->6 | 0 | 0 | 0.2305 | 0.0
 
 
 #### 3. Decouple Inverse Kinematics problem into Inverse Position Kinematics and inverse Orientation Kinematics; doing so derive the equations to calculate all individual joint angles.

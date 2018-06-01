@@ -19,6 +19,48 @@ from mpmath import *
 from sympy import *
 
 
+def get_ee_2_wc(joints):
+
+    four_2_three = get_dh_transform(pi / 2, 0.054, -1.1, pi + joints[3])
+    five_2_four = get_dh_transform(pi / 2, 0.0, 0.0, joints[4])
+    six_2_five = get_dh_transform(-pi / 2, 0.0, 0.0, joints[5])
+    ee_2_six = get_dh_transform(0.0, 0.0, 0.2305, 0.0)
+
+    result = simplify(four_2_three * five_2_four * six_2_five * ee_2_six)
+    print(result)
+    return result
+
+
+def get_wc_2_base(joints):
+
+    one_2_zero = get_dh_transform(0.0, 0.0, -0.75, joints[0])
+    two_2_one = get_dh_transform(-pi / 2, 0.35, 0.0, -pi / 2 + joints[1])
+    three_2_two = get_dh_transform(0.0, 1.25, 0.0, pi + joints[2])
+
+    result = simplify(one_2_zero * two_2_one * three_2_two)
+    print(result)
+    return result
+
+
+def get_dh_transform(alpha, a, d, theta):
+    cos_alpha = cos(alpha)
+    sin_alpha = sin(alpha)
+
+    cos_theta = cos(theta)
+    sin_theta = sin(theta)
+
+    return Matrix([
+        [cos_theta, -sin_theta, 0, a],
+        [sin_theta * cos_alpha, cos_theta * cos_alpha, -sin_alpha, -sin_alpha * d],
+        [sin_theta * sin_alpha, cos_theta * sin_alpha, cos_alpha, cos_alpha * d],
+        [0.0, 0.0, 0.0, 1.0]
+    ])
+
+
+JOINTS = symbols('JOINTS0:6')
+FULL_TRANSFORM = get_wc_2_base(JOINTS) * get_ee_2_wc(JOINTS)
+
+
 def handle_calculate_IK(req):
     rospy.loginfo("Received %s eef-poses from the plan" % len(req.poses))
     if len(req.poses) < 1:

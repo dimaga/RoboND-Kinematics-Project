@@ -21,7 +21,6 @@ from sympy import *
 
 def get_ee_2_wc(joints):
 
-    four_2_three = get_dh_transform(pi / 2, 0.054, -1.1, pi + joints[3])
     five_2_four = get_dh_transform(pi / 2, 0.0, 0.0, joints[4])
     six_2_five = get_dh_transform(-pi / 2, 0.0, 0.0, joints[5])
 
@@ -32,17 +31,18 @@ def get_ee_2_wc(joints):
         [0.0, 0.0, 0.0, 1.0],
     ])
 
-    result = simplify(four_2_three * five_2_four * six_2_five * ee_2_six)
+    result = simplify(five_2_four * six_2_five * ee_2_six)
     return result
 
 
-def get_wc_2_base(joints):
+def get_base_2_wc(joints):
 
-    one_2_zero = get_dh_transform(0.0, 0.0, -0.75, joints[0])
+    one_2_zero = get_dh_transform(0.0, 0.0, 0.75, joints[0])
     two_2_one = get_dh_transform(-pi / 2, 0.35, 0.0, -pi / 2 + joints[1])
     three_2_two = get_dh_transform(0.0, 1.25, 0.0, pi + joints[2])
+    four_2_three = get_dh_transform(pi / 2, 0.054, 1.5, pi + joints[3])
 
-    result = simplify(one_2_zero * two_2_one * three_2_two)
+    result = simplify(one_2_zero * two_2_one * three_2_two * four_2_three)
     return result
 
 

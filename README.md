@@ -45,31 +45,30 @@ corresponding matrix columns.
 
 Transformations | alpha(i-1) | a(i-1) | d(i) | theta(i)
 --- | --- | --- | --- | ---
-1->0 | 0 | 0 | -0.75 | JOINTS[0]
+1->0 | 0 | 0 | 0.75 | JOINTS[0]
 2->1 | -pi/2 | 0.35 | 0 | -pi/2 + JOINTS[1]
 3->2 | 0 | 1.25 | 0 | pi + JOINTS[2]
-4->3 |  pi/2 | 0.054 | -1.1 | pi + JOINTS[3]
+4->3 |  pi/2 | 0.054 | 1.5 | pi + JOINTS[3]
 5->4 | pi/2 | 0 | 0 | JOINTS[4]
 6->5 | -pi/2 | 0 | 0 | JOINTS[5]
-EE->6 | 0 | 0 | 0.2305 | 0.0
 
-Transformation from gripper link to (3) in DH model:
+Transformation from gripper link to (4) in DH model:
 ```python
 Matrix([
-[1.0*sin(JOINTS4)*cos(JOINTS3), -1.0*sin(JOINTS3)*cos(JOINTS5) - 1.0*sin(JOINTS5)*cos(JOINTS3)*cos(JOINTS4),  1.0*sin(JOINTS3)*sin(JOINTS5) - 1.0*cos(JOINTS3)*cos(JOINTS4)*cos(JOINTS5), 0.2305*sin(JOINTS4)*cos(JOINTS3) + 0.054],
-[            -1.0*cos(JOINTS4),                                              -1.0*sin(JOINTS4)*sin(JOINTS5),                                              -1.0*sin(JOINTS4)*cos(JOINTS5),               -0.2305*cos(JOINTS4) + 1.1],
-[1.0*sin(JOINTS3)*sin(JOINTS4), -1.0*sin(JOINTS3)*sin(JOINTS5)*cos(JOINTS4) + 1.0*cos(JOINTS3)*cos(JOINTS5), -1.0*sin(JOINTS3)*cos(JOINTS4)*cos(JOINTS5) - 1.0*sin(JOINTS5)*cos(JOINTS3),         0.2305*sin(JOINTS3)*sin(JOINTS4)],
-[                            0,                                                                           0,                                                                           0,                                      1.0]])
+[-1.0*sin(JOINTS4), 1.0*sin(JOINTS5)*cos(JOINTS4), 1.0*cos(JOINTS4)*cos(JOINTS5), -0.2305*sin(JOINTS4)],
+[                0,             -1.0*cos(JOINTS5),              1.0*sin(JOINTS5),                    0],
+[ 1.0*cos(JOINTS4), 1.0*sin(JOINTS4)*sin(JOINTS5), 1.0*sin(JOINTS4)*cos(JOINTS5),  0.2305*cos(JOINTS4)],
+[                0,                             0,                             0,                  1.0]])
 ```
 
-Transformation from (3) in DH model to base link:
+Transformation from (4) in DH model to base link:
 
 ```python
 Matrix([
-[-sin(JOINTS1 + JOINTS2)*cos(JOINTS0), -cos(JOINTS0)*cos(JOINTS1 + JOINTS2), -sin(JOINTS0), (1.25*sin(JOINTS1) + 0.35)*cos(JOINTS0)],
-[-sin(JOINTS0)*sin(JOINTS1 + JOINTS2), -sin(JOINTS0)*cos(JOINTS1 + JOINTS2),  cos(JOINTS0), (1.25*sin(JOINTS1) + 0.35)*sin(JOINTS0)],
-[             -cos(JOINTS1 + JOINTS2),               sin(JOINTS1 + JOINTS2),             0,                1.25*cos(JOINTS1) - 0.75],
-[                                   0,                                    0,             0,                                     1.0]])
+[sin(JOINTS0)*sin(JOINTS3) + sin(JOINTS1 + JOINTS2)*cos(JOINTS0)*cos(JOINTS3),  sin(JOINTS0)*cos(JOINTS3) - sin(JOINTS3)*sin(JOINTS1 + JOINTS2)*cos(JOINTS0), cos(JOINTS0)*cos(JOINTS1 + JOINTS2), (1.25*sin(JOINTS1) - 0.054*sin(JOINTS1 + JOINTS2) + 1.5*cos(JOINTS1 + JOINTS2) + 0.35)*cos(JOINTS0)],
+[sin(JOINTS0)*sin(JOINTS1 + JOINTS2)*cos(JOINTS3) - sin(JOINTS3)*cos(JOINTS0), -sin(JOINTS0)*sin(JOINTS3)*sin(JOINTS1 + JOINTS2) - cos(JOINTS0)*cos(JOINTS3), sin(JOINTS0)*cos(JOINTS1 + JOINTS2), (1.25*sin(JOINTS1) - 0.054*sin(JOINTS1 + JOINTS2) + 1.5*cos(JOINTS1 + JOINTS2) + 0.35)*sin(JOINTS0)],
+[                                         cos(JOINTS3)*cos(JOINTS1 + JOINTS2),                                          -sin(JOINTS3)*cos(JOINTS1 + JOINTS2),             -sin(JOINTS1 + JOINTS2),               -1.5*sin(JOINTS1 + JOINTS2) + 1.25*cos(JOINTS1) - 0.054*cos(JOINTS1 + JOINTS2) + 0.75],
+[                                                                           0,                                                                             0,                                   0,                                                                                                 1.0]])
 ```
 
 #### 3. Decouple Inverse Kinematics problem into Inverse Position Kinematics and inverse Orientation Kinematics; doing so derive the equations to calculate all individual joint angles.

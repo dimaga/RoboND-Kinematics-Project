@@ -70,7 +70,7 @@ Matrix([
 [                                         cos(JOINTS3)*cos(JOINTS1 + JOINTS2),                                          -sin(JOINTS3)*cos(JOINTS1 + JOINTS2),             -sin(JOINTS1 + JOINTS2),               -1.5*sin(JOINTS1 + JOINTS2) + 1.25*cos(JOINTS1) - 0.054*cos(JOINTS1 + JOINTS2) + 0.75],
 [                                                                           0,                                                                             0,                                   0,                                                                                                 1.0]])
 ```
-
+q
 #### 3. Decouple Inverse Kinematics problem into Inverse Position Kinematics and inverse Orientation Kinematics; doing so derive the equations to calculate all individual joint angles.
 
 And here's where you can draw out and show your math for the derivation of your theta angles. 

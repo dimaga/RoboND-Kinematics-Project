@@ -27,8 +27,21 @@ test_cases = {1:[[[2.16135,-1.42635,1.55109],
               5:[]}
 
 
-def get_ee_2_wc(joints):
+def quat_2_rotation(q):
 
+    qx, qy, qz, qw = q
+
+    result = Matrix([
+        [1 - 2 * qy**2 - 2 * qz**2, 2*qx*qy - 2*qz*qw, 2*qx*qz + 2*qy*qw],
+        [2*qx*qy + 2*qz*qw, 1 - 2 * qx**2 - 2 * qz**2, 2*qy*qz - 2*qx*qw],
+        [2*qx*qz - 2*qy*qw, 2*qy*qz + 2*qx*qw, 1 - 2 * qx**2 - 2 * qy**2]
+    ])
+
+    return result
+
+
+def get_ee_2_wc(joints):
+    four_2_three_var = get_dh_transform(0.0, 0.0, 0.0, joints[3])
     five_2_four = get_dh_transform(pi / 2, 0.0, 0.0, joints[4])
     six_2_five = get_dh_transform(-pi / 2, 0.0, 0.0, joints[5])
 
@@ -39,8 +52,7 @@ def get_ee_2_wc(joints):
         [0.0, 0.0, 0.0, 1.0],
     ])
 
-    result = simplify(five_2_four * six_2_five * ee_2_six)
-    print(result)
+    result = simplify(four_2_three_var * five_2_four * six_2_five * ee_2_six)
     return result
 
 
@@ -49,10 +61,9 @@ def get_base_2_wc(joints):
     one_2_zero = get_dh_transform(0.0, 0.0, 0.75, joints[0])
     two_2_one = get_dh_transform(-pi / 2, 0.35, 0.0, -pi / 2 + joints[1])
     three_2_two = get_dh_transform(0.0, 1.25, 0.0, pi + joints[2])
-    four_2_three = get_dh_transform(pi / 2, 0.054, 1.5, pi + joints[3])
+    four_2_three_const = get_dh_transform(pi / 2, 0.054, 1.5, pi)
 
-    result = simplify(one_2_zero * two_2_one * three_2_two * four_2_three)
-    print(result)
+    result = simplify(one_2_zero * two_2_one * three_2_two * four_2_three_const)
     return result
 
 
@@ -138,11 +149,24 @@ def test_code(test_case):
     ########################################################################################
 
     ## For error analysis please set the following variables of your WC location and EE location in the format of [x,y,z]
-    wc_2_base_array = np.array(WC_2_BASE.evalf(subs={JOINTS[0]:joints[0], JOINTS[1]:joints[1], JOINTS[2]:joints[2], JOINTS[3]:joints[3]})).astype(np.float64)
-    ee_2_wc_array = np.array(EE_2_WC.evalf(subs={JOINTS[4]:joints[4], JOINTS[5]:joints[5]})).astype(np.float64)
+    wc_2_base_array = np.array(WC_2_BASE.evalf(subs={JOINTS[0]:joints[0], JOINTS[1]:joints[1], JOINTS[2]:joints[2]})).astype(np.float64)
+    ee_2_wc_array = np.array(EE_2_WC.evalf(subs={JOINTS[3]:joints[3], JOINTS[4]:joints[4], JOINTS[5]:joints[5]})).astype(np.float64)
 
     your_wc = wc_2_base_array.dot(np.array([0.0, 0.0, 0.0, 1.0]))
     your_ee = wc_2_base_array.dot(ee_2_wc_array.dot(np.array([0.0, 0.0, 0.0, 1.0])))
+
+    your_ee_dir_x = wc_2_base_array.dot(ee_2_wc_array.dot(np.array([1.0, 0.0, 0.0, 0.0])))
+    your_ee_dir_y = wc_2_base_array.dot(ee_2_wc_array.dot(np.array([0.0, 1.0, 0.0, 0.0])))
+    your_ee_dir_z = wc_2_base_array.dot(ee_2_wc_array.dot(np.array([0.0, 0.0, 1.0, 0.0])))
+
+    print("your_ee_dir_x", your_ee_dir_x)
+    print("your_ee_dir_y", your_ee_dir_y)
+    print("your_ee_dir_z", your_ee_dir_z)
+
+    r = quat_2_rotation(test_case[0][1])
+    print("expected_dir_x", r[:, 0])
+    print("expected_dir_y", r[:, 1])
+    print("expected_dir_z", r[:, 2])
 
     ########################################################################################
 

@@ -53,24 +53,25 @@ Transformations | alpha(i-1) | a(i-1) | d(i) | theta(i)
 6->5 | -pi/2 | 0 | 0 | JOINTS[5]
 
 Transformation from gripper link to (4) in DH model:
+
 ```python
 Matrix([
-[-1.0*sin(JOINTS4), 1.0*sin(JOINTS5)*cos(JOINTS4), 1.0*cos(JOINTS4)*cos(JOINTS5), -0.2305*sin(JOINTS4)],
-[                0,             -1.0*cos(JOINTS5),              1.0*sin(JOINTS5),                    0],
-[ 1.0*cos(JOINTS4), 1.0*sin(JOINTS4)*sin(JOINTS5), 1.0*sin(JOINTS4)*cos(JOINTS5),  0.2305*cos(JOINTS4)],
-[                0,                             0,                             0,                  1.0]])
+[-1.0*sin(JOINTS4)*cos(JOINTS3), 1.0*sin(JOINTS3)*cos(JOINTS5) + 1.0*sin(JOINTS5)*cos(JOINTS3)*cos(JOINTS4), -1.0*sin(JOINTS3)*sin(JOINTS5) + 1.0*cos(JOINTS3)*cos(JOINTS4)*cos(JOINTS5), -0.2305*sin(JOINTS4)*cos(JOINTS3)],
+[-1.0*sin(JOINTS3)*sin(JOINTS4), 1.0*sin(JOINTS3)*sin(JOINTS5)*cos(JOINTS4) - 1.0*cos(JOINTS3)*cos(JOINTS5),  1.0*sin(JOINTS3)*cos(JOINTS4)*cos(JOINTS5) + 1.0*sin(JOINTS5)*cos(JOINTS3), -0.2305*sin(JOINTS3)*sin(JOINTS4)],
+[              1.0*cos(JOINTS4),                                              1.0*sin(JOINTS4)*sin(JOINTS5),                                               1.0*sin(JOINTS4)*cos(JOINTS5),               0.2305*cos(JOINTS4)],
+[                             0,                                                                          0,                                                                           0,                               1.0]]))
 ```
 
 Transformation from (4) in DH model to base link:
 
 ```python
 Matrix([
-[sin(JOINTS0)*sin(JOINTS3) + sin(JOINTS1 + JOINTS2)*cos(JOINTS0)*cos(JOINTS3),  sin(JOINTS0)*cos(JOINTS3) - sin(JOINTS3)*sin(JOINTS1 + JOINTS2)*cos(JOINTS0), cos(JOINTS0)*cos(JOINTS1 + JOINTS2), (1.25*sin(JOINTS1) - 0.054*sin(JOINTS1 + JOINTS2) + 1.5*cos(JOINTS1 + JOINTS2) + 0.35)*cos(JOINTS0)],
-[sin(JOINTS0)*sin(JOINTS1 + JOINTS2)*cos(JOINTS3) - sin(JOINTS3)*cos(JOINTS0), -sin(JOINTS0)*sin(JOINTS3)*sin(JOINTS1 + JOINTS2) - cos(JOINTS0)*cos(JOINTS3), sin(JOINTS0)*cos(JOINTS1 + JOINTS2), (1.25*sin(JOINTS1) - 0.054*sin(JOINTS1 + JOINTS2) + 1.5*cos(JOINTS1 + JOINTS2) + 0.35)*sin(JOINTS0)],
-[                                         cos(JOINTS3)*cos(JOINTS1 + JOINTS2),                                          -sin(JOINTS3)*cos(JOINTS1 + JOINTS2),             -sin(JOINTS1 + JOINTS2),               -1.5*sin(JOINTS1 + JOINTS2) + 1.25*cos(JOINTS1) - 0.054*cos(JOINTS1 + JOINTS2) + 0.75],
-[                                                                           0,                                                                             0,                                   0,                                                                                                 1.0]])
+[sin(JOINTS1 + JOINTS2)*cos(JOINTS0),  sin(JOINTS0), cos(JOINTS0)*cos(JOINTS1 + JOINTS2), (1.25*sin(JOINTS1) - 0.054*sin(JOINTS1 + JOINTS2) + 1.5*cos(JOINTS1 + JOINTS2) + 0.35)*cos(JOINTS0)],
+[sin(JOINTS0)*sin(JOINTS1 + JOINTS2), -cos(JOINTS0), sin(JOINTS0)*cos(JOINTS1 + JOINTS2), (1.25*sin(JOINTS1) - 0.054*sin(JOINTS1 + JOINTS2) + 1.5*cos(JOINTS1 + JOINTS2) + 0.35)*sin(JOINTS0)],
+[             cos(JOINTS1 + JOINTS2),             0,             -sin(JOINTS1 + JOINTS2),               -1.5*sin(JOINTS1 + JOINTS2) + 1.25*cos(JOINTS1) - 0.054*cos(JOINTS1 + JOINTS2) + 0.75],
+[                                  0,             0,                                   0,                                                                                                 1.0]]))
 ```
-q
+
 #### 3. Decouple Inverse Kinematics problem into Inverse Position Kinematics and inverse Orientation Kinematics; doing so derive the equations to calculate all individual joint angles.
 
 And here's where you can draw out and show your math for the derivation of your theta angles. 

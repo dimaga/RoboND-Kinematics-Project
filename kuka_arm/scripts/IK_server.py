@@ -19,8 +19,21 @@ from mpmath import *
 from sympy import *
 
 
-def get_ee_2_wc(joints):
+def quat_2_rotation(q):
 
+    qx, qy, qz, qw = q
+
+    result = Matrix([
+        [1 - 2 * qy**2 - 2 * qz**2, 2*qx*qy - 2*qz*qw, 2*qx*qz + 2*qy*qw],
+        [2*qx*qy + 2*qz*qw, 1 - 2 * qx**2 - 2 * qz**2, 2*qy*qz - 2*qx*qw],
+        [2*qx*qz - 2*qy*qw, 2*qy*qz + 2*qx*qw, 1 - 2 * qx**2 - 2 * qy**2]
+    ])
+
+    return result
+
+
+def get_ee_2_wc(joints):
+    four_2_three_var = get_dh_transform(0.0, 0.0, 0.0, joints[3])
     five_2_four = get_dh_transform(pi / 2, 0.0, 0.0, joints[4])
     six_2_five = get_dh_transform(-pi / 2, 0.0, 0.0, joints[5])
 
@@ -31,18 +44,18 @@ def get_ee_2_wc(joints):
         [0.0, 0.0, 0.0, 1.0],
     ])
 
-    result = simplify(five_2_four * six_2_five * ee_2_six)
+    result = simplify(four_2_three_var * five_2_four * six_2_five * ee_2_six)
     return result
 
 
-def get_base_2_wc(joints):
+def get_wc_2_base(joints):
 
     one_2_zero = get_dh_transform(0.0, 0.0, 0.75, joints[0])
     two_2_one = get_dh_transform(-pi / 2, 0.35, 0.0, -pi / 2 + joints[1])
     three_2_two = get_dh_transform(0.0, 1.25, 0.0, pi + joints[2])
-    four_2_three = get_dh_transform(pi / 2, 0.054, 1.5, pi + joints[3])
+    four_2_three_const = get_dh_transform(pi / 2, 0.054, 1.5, pi)
 
-    result = simplify(one_2_zero * two_2_one * three_2_two * four_2_three)
+    result = simplify(one_2_zero * two_2_one * three_2_two * four_2_three_const)
     return result
 
 

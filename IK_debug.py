@@ -56,7 +56,7 @@ def get_ee_2_wc(joints):
     return result
 
 
-def get_base_2_wc(joints):
+def get_wc_2_base(joints):
 
     one_2_zero = get_dh_transform(0.0, 0.0, 0.75, joints[0])
     two_2_one = get_dh_transform(-pi / 2, 0.35, 0.0, -pi / 2 + joints[1])
@@ -83,7 +83,7 @@ def get_dh_transform(alpha, a, d, theta):
 
 
 JOINTS = symbols('JOINTS0:6')
-WC_2_BASE = get_base_2_wc(JOINTS)
+WC_2_BASE = get_wc_2_base(JOINTS)
 EE_2_WC = get_ee_2_wc(JOINTS)
 FULL_TRANSFORM = WC_2_BASE * EE_2_WC
 

@@ -9,10 +9,6 @@ https://github.com/udacity/RoboND-Kinematics-Project
 
 [//]: # (Image References)
 
-[dh-model]: ./misc_images/dh-model.png
-[image1]: ./misc_images/misc1.png
-[image2]: ./misc_images/misc3.png
-[image3]: ./misc_images/misc2.png
 
 ## [Rubric](https://review.udacity.com/#!/rubrics/972/view) Points
 ### Here I will consider the rubric points individually and describe how I addressed each point in my implementation.  
@@ -39,6 +35,7 @@ The reference frame of EE (End Effector) coincides with the gripper reference fr
 from EE into (6) is calculated by taking EE axes and origin coordinates in (6) reference frame and placing them in the
 corresponding matrix columns.
 
+[dh-model]: ./misc_images/dh-model.png
 ![alt text][dh-model]
 
 #### 2. Using the DH parameter table you derived earlier, create individual transformation matrices about each joint. In addition, also generate a generalized homogeneous transform between base_link and gripper_link using only end-effector(gripper) pose.
@@ -76,7 +73,8 @@ Matrix([
 
 And here's where you can draw out and show your math for the derivation of your theta angles. 
 
-![alt text][image2]
+[ik_joints_1_2]: ./misc_images/ik_joints_1_2.png
+![alt text][ik_joints_1_2]
 
 ### Project Implementation
 
@@ -87,6 +85,5 @@ Here I'll talk about the code, what techniques I used, what worked and why, wher
 
 
 And just for fun, another example image:
-![alt text][image3]
 
 

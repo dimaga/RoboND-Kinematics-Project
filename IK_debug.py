@@ -1,62 +1,75 @@
-from sympy import *
-from time import time
+from sympy import sin, cos, Matrix, pi, symbols, simplify
 import numpy as np
-from mpmath import radians
+import unittest
 
 
-'''
-Format of test case is [ [[EE position],[EE orientation as quaternions]],[WC location],[joint angles]]
-You can generate additional test cases by setting up your kuka project and running `$ roslaunch kuka_arm forward_kinematics.launch`
-From here you can adjust the joint angles to find thetas, use the gripper to extract positions and orientation (in quaternion xyzw) and lastly use link 5
-to find the position of the wrist center. These newly generated test cases can be added to the test_cases dictionary.
-'''
+def dot(a, b):
+    """Extend np.dot() to support simpy.Matrix types. This is to avoid confusion with *-operator, which does different
+    when applied to different types"""
 
-test_cases = {1:[[[2.16135,-1.42635,1.55109],
-                  [0.708611,0.186356,-0.157931,0.661967]],
-                  [1.89451,-1.44302,1.69366],
-                  [-0.65,0.45,-0.36,0.95,0.79,0.49]],
-              2:[[[-0.56754,0.93663,3.0038],
-                  [0.62073, 0.48318,0.38759,0.480629]],
-                  [-0.638,0.64198,2.9988],
-                  [-0.79,-0.11,-2.33,1.94,1.14,-3.68]],
-              3:[[[-1.3863,0.02074,0.90986],
-                  [0.01735,-0.2179,0.9025,0.371016]],
-                  [-1.1669,-0.17989,0.85137],
-                  [-2.99,-0.12,0.94,4.06,1.29,-4.12]],
-              4:[],
-              5:[]}
+    if isinstance(a, Matrix) and isinstance(b, Matrix):
+        return a * b
+
+    if not isinstance(a, np.array):
+        a = np.array(a).astype(np.float64)
+
+    if not isinstance(b, np.array):
+        b = np.array(b).astype(np.float64)
+
+    return a.dot(b)
 
 
-def get_ee_2_wc(joints):
+def quat_2_rotation(q):
+    """Transforms quaternion into a rotation matrix. q[3] is expected to hold real part"""
 
-    five_2_four = get_dh_transform(pi / 2, 0.0, 0.0, joints[4])
-    six_2_five = get_dh_transform(-pi / 2, 0.0, 0.0, joints[5])
+    qx, qy, qz, qw = q
 
-    ee_2_six = Matrix([
-        [0.0, 0.0, 1.0, 0.0],
-        [0.0, -1.0, 0.0, 0.0],
-        [1.0, 0.0, 0.0, 0.2305],
-        [0.0, 0.0, 0.0, 1.0],
+    result = Matrix([
+        [1 - 2 * qy**2 - 2 * qz**2, 2*qx*qy - 2*qz*qw, 2*qx*qz + 2*qy*qw],
+        [2*qx*qy + 2*qz*qw, 1 - 2 * qx**2 - 2 * qz**2, 2*qy*qz - 2*qx*qw],
+        [2*qx*qz - 2*qy*qw, 2*qy*qz + 2*qx*qw, 1 - 2 * qx**2 - 2 * qy**2]
     ])
 
-    result = simplify(five_2_four * six_2_five * ee_2_six)
-    print(result)
     return result
 
 
-def get_base_2_wc(joints):
+EE_2_SIX = Matrix([
+    [0.0, 0.0, 1.0, 0.0],
+    [0.0, -1.0, 0.0, 0.0],
+    [1.0, 0.0, 0.0, 0.2305],
+    [0.0, 0.0, 0.0, 1.0],
+])
 
-    one_2_zero = get_dh_transform(0.0, 0.0, 0.75, joints[0])
-    two_2_one = get_dh_transform(-pi / 2, 0.35, 0.0, -pi / 2 + joints[1])
-    three_2_two = get_dh_transform(0.0, 1.25, 0.0, pi + joints[2])
-    four_2_three = get_dh_transform(pi / 2, 0.054, 1.5, pi + joints[3])
+SIX_2_EE = EE_2_SIX.inv()
 
-    result = simplify(one_2_zero * two_2_one * three_2_two * four_2_three)
-    print(result)
+
+def get_ee_2_wc(joints):
+    """Returns transformation from End Effect to Wrist Center reference frames given joints values"""
+
+    result = EE_2_SIX
+    result = dot(get_dh_transform(-pi / 2, 0.0, 0.0, joints[5]), result)
+    result = dot( get_dh_transform(pi / 2, 0.0, 0.0, joints[4]), result)
+    result = dot(get_dh_transform(0.0, 0.0, 0.0, joints[3]), result)
+    result = simplify(result)
+
+    return result
+
+
+def get_wc_2_base(joints):
+    """Returns transformation from Wrist Center to Base (or World) reference frames given joints values"""
+
+    result = get_dh_transform(pi / 2, 0.054, 1.5, pi)
+    result = dot(get_dh_transform(0.0, 1.25, 0.0, pi + joints[2]), result)
+    result = dot(get_dh_transform(-pi / 2, 0.35, 0.0, -pi / 2 + joints[1]), result)
+    result = dot(get_dh_transform(0.0, 0.0, 0.75, joints[0]), result)
+    result = simplify(result)
+
     return result
 
 
 def get_dh_transform(alpha, a, d, theta):
+    """Returns 4x4 rigid transformation matrix given Denavit-Hartenberg parameters"""
+
     cos_alpha = cos(alpha)
     sin_alpha = sin(alpha)
 
@@ -72,132 +85,88 @@ def get_dh_transform(alpha, a, d, theta):
 
 
 JOINTS = symbols('JOINTS0:6')
-WC_2_BASE = get_base_2_wc(JOINTS)
+WC_2_BASE = get_wc_2_base(JOINTS)
 EE_2_WC = get_ee_2_wc(JOINTS)
 FULL_TRANSFORM = WC_2_BASE * EE_2_WC
 
 
-def test_code(test_case):
-    ## Set up code
-    ## Do not modify!
-    x = 0
-    class Position:
-        def __init__(self,EE_pos):
-            self.x = EE_pos[0]
-            self.y = EE_pos[1]
-            self.z = EE_pos[2]
-    class Orientation:
-        def __init__(self,EE_ori):
-            self.x = EE_ori[0]
-            self.y = EE_ori[1]
-            self.z = EE_ori[2]
-            self.w = EE_ori[3]
+def get_wc_position(ee_position, ee_rotation):
+    """Restores Wrist Center world position given desired End Effector position and rotation passed as 3x3 rotation
+    matrix"""
 
-    position = Position(test_case[0][0])
-    orientation = Orientation(test_case[0][1])
+    six_2_ee_array = np.array(SIX_2_EE).astype(np.float64)
 
-    class Combine:
-        def __init__(self,position,orientation):
-            self.position = position
-            self.orientation = orientation
+    ee_rotation_array = np.array(ee_rotation).astype(np.float64).reshape(3, 3)
+    ee_position_array = np.array(ee_position).astype(np.float64).reshape(3, 1)
 
-    comb = Combine(position,orientation)
+    ee_2_zero_array = np.vstack([
+        np.hstack([ee_rotation_array, ee_position_array]),
+        [0.0, 0.0, 0.0, 1.0]])
 
-    class Pose:
-        def __init__(self,comb):
-            self.poses = [comb]
+    six_2_zero_array = ee_2_zero_array.dot(six_2_ee_array)
 
-    wc = test_case[1]
-    joints = test_case[2]
-
-    req = Pose(comb)
-    start_time = time()
-    
-    ########################################################################################
-    ## 
+    return six_2_zero_array[:3, 3]
 
 
-    
-    theta1 = 0
-    theta2 = 0
-    theta3 = 0
-    theta4 = 0
-    theta5 = 0
-    theta6 = 0
+class TestIkMethods(unittest.TestCase):
 
-    ## 
-    ########################################################################################
-    
-    ########################################################################################
-    ## For additional debugging add your forward kinematics here. Use your previously calculated thetas
-    ## as the input and output the position of your end effector as your_ee = [x,y,z]
+    def test_1(self):
 
-    ## (OPTIONAL) YOUR CODE HERE!
+        self.__test_kinematics(
+            expected_ee_position=[2.16135, -1.42635, 1.55109],
+            expected_ee_quaternion=[0.708611, 0.186356, -0.157931, 0.661967],
+            expected_wc_position=[1.89451, -1.44302, 1.69366],
+            expected_joints=[-0.65, 0.45, -0.36, 0.95, 0.79, 0.49]
+        )
 
-    ## End your code input for forward kinematics here!
-    ########################################################################################
 
-    ## For error analysis please set the following variables of your WC location and EE location in the format of [x,y,z]
-    wc_2_base_array = np.array(WC_2_BASE.evalf(subs={JOINTS[0]:joints[0], JOINTS[1]:joints[1], JOINTS[2]:joints[2], JOINTS[3]:joints[3]})).astype(np.float64)
-    ee_2_wc_array = np.array(EE_2_WC.evalf(subs={JOINTS[4]:joints[4], JOINTS[5]:joints[5]})).astype(np.float64)
+    def test_2(self):
 
-    your_wc = wc_2_base_array.dot(np.array([0.0, 0.0, 0.0, 1.0]))
-    your_ee = wc_2_base_array.dot(ee_2_wc_array.dot(np.array([0.0, 0.0, 0.0, 1.0])))
+        self.__test_kinematics(
+            expected_ee_position=[-0.56754, 0.93663, 3.0038],
+            expected_ee_quaternion=[0.62073, 0.48318, 0.38759, 0.480629],
+            expected_wc_position=[-0.638, 0.64198, 2.9988],
+            expected_joints=[-0.79, -0.11, -2.33, 1.94, 1.14, -3.68]
+        )
 
-    ########################################################################################
 
-    ## Error analysis
-    print ("\nTotal run time to calculate joint angles from pose is %04.4f seconds" % (time()-start_time))
+    def test_3(self):
 
-    # Find WC error
-    wc_x_e = abs(your_wc[0]-test_case[1][0])
-    wc_y_e = abs(your_wc[1]-test_case[1][1])
-    wc_z_e = abs(your_wc[2]-test_case[1][2])
-    wc_offset = sqrt(wc_x_e**2 + wc_y_e**2 + wc_z_e**2)
-    print ("\nyour_wc[0]: %04.8f" % your_wc[0])
-    print ("your_wc[1]: %04.8f" % your_wc[1])
-    print ("your_wc[2]: %04.8f" % your_wc[2])
-    print ("\nWrist error for x position is: %04.8f" % wc_x_e)
-    print ("Wrist error for y position is: %04.8f" % wc_y_e)
-    print ("Wrist error for z position is: %04.8f" % wc_z_e)
-    print ("Overall wrist offset is: %04.8f units" % wc_offset)
+        self.__test_kinematics(
+            expected_ee_position=[-1.3863, 0.02074, 0.90986],
+            expected_ee_quaternion=[0.01735, -0.2179, 0.9025, 0.371016],
+            expected_wc_position=[-1.1669, -0.17989, 0.85137],
+            expected_joints=[-2.99, -0.12, 0.94, 4.06, 1.29, -4.12]
+        )
 
-    # Find theta errors
-    t_1_e = abs(theta1-test_case[2][0])
-    t_2_e = abs(theta2-test_case[2][1])
-    t_3_e = abs(theta3-test_case[2][2])
-    t_4_e = abs(theta4-test_case[2][3])
-    t_5_e = abs(theta5-test_case[2][4])
-    t_6_e = abs(theta6-test_case[2][5])
-    print ("\nTheta 1 error is: %04.8f" % t_1_e)
-    print ("Theta 2 error is: %04.8f" % t_2_e)
-    print ("Theta 3 error is: %04.8f" % t_3_e)
-    print ("Theta 4 error is: %04.8f" % t_4_e)
-    print ("Theta 5 error is: %04.8f" % t_5_e)
-    print ("Theta 6 error is: %04.8f" % t_6_e)
-    print ("\n**These theta errors may not be a correct representation of your code, due to the fact \
-           \nthat the arm can have muliple positions. It is best to add your forward kinmeatics to \
-           \nconfirm whether your code is working or not**")
-    print (" ")
 
-    # Find FK EE error
-    ee_x_e = abs(your_ee[0]-test_case[0][0][0])
-    ee_y_e = abs(your_ee[1]-test_case[0][0][1])
-    ee_z_e = abs(your_ee[2]-test_case[0][0][2])
-    ee_offset = sqrt(ee_x_e**2 + ee_y_e**2 + ee_z_e**2)
-    print ("\nyour_ee[0]: %04.8f" % your_ee[0])
-    print ("your_ee[1]: %04.8f" % your_ee[1])
-    print ("your_ee[2]: %04.8f" % your_ee[2])
-    print ("\nEnd effector error for x position is: %04.8f" % ee_x_e)
-    print ("End effector error for y position is: %04.8f" % ee_y_e)
-    print ("End effector error for z position is: %04.8f" % ee_z_e)
-    print ("Overall end effector offset is: %04.8f units \n" % ee_offset)
+    def __test_kinematics(self, expected_ee_position, expected_ee_quaternion, expected_wc_position, expected_joints):
+
+        wc_2_base_array = np.array(WC_2_BASE.evalf(subs={
+            JOINTS[0]: expected_joints[0],
+            JOINTS[1]: expected_joints[1],
+            JOINTS[2]: expected_joints[2]})).astype(np.float64)
+
+        ee_2_wc_array = np.array(EE_2_WC.evalf(subs={
+            JOINTS[3]: expected_joints[3],
+            JOINTS[4]: expected_joints[4],
+            JOINTS[5]: expected_joints[5]})).astype(np.float64)
+
+        ee_2_base_array = wc_2_base_array.dot(ee_2_wc_array)
+        expected_ee_rotation = quat_2_rotation(expected_ee_quaternion)
+
+        np.testing.assert_almost_equal(expected_wc_position, wc_2_base_array[:3, 3], decimal=1)
+        np.testing.assert_almost_equal(expected_ee_position, ee_2_base_array[:3, 3], decimal=1)
+        np.testing.assert_almost_equal(expected_ee_rotation, ee_2_base_array[:3, :3], decimal=1)
+
+        np.testing.assert_almost_equal(
+            expected_wc_position,
+            get_wc_position(expected_ee_position, expected_ee_rotation),
+            decimal=1)
 
 
 
 
-if __name__ == "__main__":
-    # Change test case number for different scenarios
-    test_case_number = 1
+if __name__ == '__main__':
+    unittest.main()
 
-    test_code(test_cases[test_case_number])

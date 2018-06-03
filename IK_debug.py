@@ -1,8 +1,6 @@
-from sympy import *
-from time import time
+from sympy import sin, cos, Matrix, pi, symbols, simplify
 import numpy as np
 import unittest
-from mpmath import radians
 
 
 EE_2_SIX = Matrix([
@@ -12,8 +10,27 @@ EE_2_SIX = Matrix([
     [0.0, 0.0, 0.0, 1.0],
 ])
 
+SIX_2_EE = EE_2_SIX.inv()
+
+
+def dot(a, b):
+    """Extend np.dot() to support simpy.Matrix types. This is to avoid confusion with *-operator, which does different
+    when applied to different types"""
+
+    if isinstance(a, Matrix) and isinstance(b, Matrix):
+        return a * b
+
+    if not isinstance(a, np.array):
+        a = np.array(a).astype(np.float64)
+
+    if not isinstance(b, np.array):
+        b = np.array(b).astype(np.float64)
+
+    return a.dot(b)
+
 
 def quat_2_rotation(q):
+    """Transforms quaternion into a rotation matrix. q[3] is expected to hold real part"""
 
     qx, qy, qz, qw = q
 
@@ -27,26 +44,32 @@ def quat_2_rotation(q):
 
 
 def get_ee_2_wc(joints):
-    four_2_three_var = get_dh_transform(0.0, 0.0, 0.0, joints[3])
-    five_2_four = get_dh_transform(pi / 2, 0.0, 0.0, joints[4])
-    six_2_five = get_dh_transform(-pi / 2, 0.0, 0.0, joints[5])
+    """Returns transformation from End Effect to Wrist Center reference frames given joints values"""
 
-    result = simplify(four_2_three_var * five_2_four * six_2_five * EE_2_SIX)
+    result = EE_2_SIX
+    result = dot(get_dh_transform(-pi / 2, 0.0, 0.0, joints[5]), result)
+    result = dot( get_dh_transform(pi / 2, 0.0, 0.0, joints[4]), result)
+    result = dot(get_dh_transform(0.0, 0.0, 0.0, joints[3]), result)
+    result = simplify(result)
+
     return result
 
 
 def get_wc_2_base(joints):
+    """Returns transformation from Wrist Center to Base (or World) reference frames given joints values"""
 
-    one_2_zero = get_dh_transform(0.0, 0.0, 0.75, joints[0])
-    two_2_one = get_dh_transform(-pi / 2, 0.35, 0.0, -pi / 2 + joints[1])
-    three_2_two = get_dh_transform(0.0, 1.25, 0.0, pi + joints[2])
-    four_2_three_const = get_dh_transform(pi / 2, 0.054, 1.5, pi)
+    result = get_dh_transform(pi / 2, 0.054, 1.5, pi)
+    result = dot(get_dh_transform(0.0, 1.25, 0.0, pi + joints[2]), result)
+    result = dot(get_dh_transform(-pi / 2, 0.35, 0.0, -pi / 2 + joints[1]), result)
+    result = dot(get_dh_transform(0.0, 0.0, 0.75, joints[0]), result)
+    result = simplify(result)
 
-    result = simplify(one_2_zero * two_2_one * three_2_two * four_2_three_const)
     return result
 
 
 def get_dh_transform(alpha, a, d, theta):
+    """Returns 4x4 rigid transformation matrix given Denavit-Hartenberg parameters"""
+
     cos_alpha = cos(alpha)
     sin_alpha = sin(alpha)
 
@@ -68,8 +91,10 @@ FULL_TRANSFORM = WC_2_BASE * EE_2_WC
 
 
 def get_wc_position(ee_position, ee_rotation):
+    """Restores Wrist Center world position given desired End Effector position and rotation passed as 3x3 rotation
+    matrix"""
 
-    six_2_ee_array = np.linalg.inv(np.array(EE_2_SIX).astype(np.float64))
+    six_2_ee_array = np.array(SIX_2_EE).astype(np.float64)
 
     ee_rotation_array = np.array(ee_rotation).astype(np.float64).reshape(3, 3)
     ee_position_array = np.array(ee_position).astype(np.float64).reshape(3, 1)

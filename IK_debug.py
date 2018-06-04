@@ -1,5 +1,6 @@
 from sympy import sin, cos, Matrix, pi, symbols, simplify, atan2
 import numpy as np
+import math
 import unittest
 
 
@@ -10,10 +11,10 @@ def dot(a, b):
     if isinstance(a, Matrix) and isinstance(b, Matrix):
         return a * b
 
-    if not isinstance(a, np.array):
+    if not isinstance(a, np.ndarray):
         a = np.array(a).astype(np.float64)
 
-    if not isinstance(b, np.array):
+    if not isinstance(b, np.ndarray):
         b = np.array(b).astype(np.float64)
 
     return a.dot(b)
@@ -65,7 +66,7 @@ JOINTS = symbols('JOINTS0:6')
 
 SIX_2_FIVE = get_dh_transform(-pi / 2, 0.0, 0.0, JOINTS[5])
 FIVE_2_FOUR = get_dh_transform(pi / 2, 0.0, 0.0, JOINTS[4])
-FOUR_2_THREE_VAR = get_dh_transform(0.0, 0.0, 0.0, JOINTS[3])
+FOUR_2_WC = get_dh_transform(0.0, 0.0, 0.0, JOINTS[3])
 
 
 def get_ee_2_wc():
@@ -73,23 +74,33 @@ def get_ee_2_wc():
 
     result = dot(SIX_2_FIVE, EE_2_SIX)
     result = dot(FIVE_2_FOUR, result)
-    result = dot(FOUR_2_THREE_VAR, result)
+    result = dot(FOUR_2_WC, result)
     result = simplify(result)
 
     return result
 
+WC_2_THREE_A = 0.054
+WC_2_THREE_D = 1.5
+WC_2_THREE_LENGTH = math.sqrt(WC_2_THREE_A**2 + WC_2_THREE_D**2)
 
-FOUR_2_THREE_CONST = get_dh_transform(pi / 2, 0.054, 1.5, pi)
-THREE_2_TWO = get_dh_transform(0.0, 1.25, 0.0, pi + JOINTS[2])
-TWO_2_ONE = get_dh_transform(-pi / 2, 0.35, 0.0, -pi / 2 + JOINTS[1])
+WC_2_THREE_CONST = get_dh_transform(pi / 2, WC_2_THREE_A, WC_2_THREE_D, pi)
+
+THREE_2_TWO_A = 1.25
+THREE_2_TWO = get_dh_transform(0.0, THREE_2_TWO_A, 0.0, pi + JOINTS[2])
+
+TWO_2_ONE_VAR = get_dh_transform(0.0, 0.0, 0.0, JOINTS[1])
+TWO_2_ONE_CONST = get_dh_transform(-pi / 2, 0.35, 0.0, -pi / 2)
+ONE_2_TWO_CONST = simplify(TWO_2_ONE_CONST.inv())
 ONE_2_ZERO = get_dh_transform(0.0, 0.0, 0.75, JOINTS[0])
+ZERO_2_ONE = simplify(ONE_2_ZERO.inv())
 
 
 def get_wc_2_base():
     """Returns transformation from Wrist Center to Base (or World) reference frames given joints values"""
 
-    result = dot(THREE_2_TWO, FOUR_2_THREE_CONST)
-    result = dot(TWO_2_ONE, result)
+    result = dot(THREE_2_TWO, WC_2_THREE_CONST)
+    result = dot(TWO_2_ONE_VAR, result)
+    result = dot(TWO_2_ONE_CONST, result)
     result = dot(ONE_2_ZERO, result)
     result = simplify(result)
 
@@ -124,20 +135,54 @@ def restore_wc_joint_0(wc_position):
 
     n_cos_a = wc_position[0]
     n_sin_a = wc_position[1]
-    yield { JOINTS[0] : atan2(n_sin_a, n_cos_a) }
-    yield { JOINTS[0] : atan2(-n_sin_a, -n_cos_a) }
+
+    yield { JOINTS[0] : math.atan2(n_sin_a, n_cos_a) }
+    yield { JOINTS[0] : math.atan2(-n_sin_a, -n_cos_a) }
 
 
 def restore_wc_joints_0_3(wc_position):
     """Generates hypothesis of JOINTS[0], JOINTS[1] and JOINTS[2] from Wrist Center world position"""
 
     for wc_joint_0 in restore_wc_joint_0(wc_position):
-        wc_joints_0_3 = {JOINTS[1] : 0.0, JOINTS[2] : 1.0}
+
+        wc_position_in_one = dot(ZERO_2_ONE.evalf(subs=wc_joint_0), [
+            wc_position[0],
+            wc_position[1],
+            wc_position[2],
+            1.0])
+
+        wc_position_in_two = dot(ONE_2_TWO_CONST, wc_position_in_one)
+        print("wc_position_in_two", wc_position_in_two)
+
+        # See Inverse Kinematics picture in README.md
+        a = WC_2_THREE_LENGTH
+        b = np.linalg.norm(wc_position_in_two[:2])
+        c = THREE_2_TWO_A
+
+        # Cosine theorem
+        cos_a_angle = (b**2 + c**2 - a**2) / (2*b*c)
+        if cos_a_angle < -1 or cos_a_angle > 1:
+            continue
+
+        a_angle = math.acos(cos_a_angle)
+
+        cos_b_angle = (a**2 + c**2 - b**2) / (2*a*c)
+        if cos_b_angle < -1 or cos_b_angle > 1:
+            continue
+
+        b_angle = math.acos(cos_b_angle)
+
+        default_b_angle = math.atan2(WC_2_THREE_A, WC_2_THREE_D)
+        wc_angle = math.atan2(wc_position_in_two[1], wc_position_in_two[0])
+
+        wc_joints_0_3 = {JOINTS[1] : np.pi/2 - a_angle - wc_angle}
         wc_joints_0_3.update(wc_joint_0)
+        wc_joints_0_3.update({JOINTS[2] : b_angle - default_b_angle})
         yield wc_joints_0_3
 
-        wc_joints_0_3 = {JOINTS[1] : 0.0, JOINTS[2] : -1.0}
+        wc_joints_0_3 = {JOINTS[1] : np.pi/2 - wc_angle + a_angle}
         wc_joints_0_3.update(wc_joint_0)
+        wc_joints_0_3.update({JOINTS[2]: 0.0})
         yield wc_joints_0_3
 
 
@@ -197,8 +242,11 @@ class TestIkMethods(unittest.TestCase):
 
         for joints_0_3 in restore_wc_joints_0_3(got_wc_position):
 
-            wc_2_base_array = np.array(WC_2_BASE.evalf(subs=joints_0_3)).astype(np.float64)
-            np.testing.assert_almost_equal(got_wc_position, wc_2_base_array[:3, 3])
+            print("expected", expected_joints)
+            print("real", joints_0_3)
+
+            #wc_2_base_array = np.array(WC_2_BASE.evalf(subs=joints_0_3)).astype(np.float64)
+            #np.testing.assert_almost_equal(got_wc_position, wc_2_base_array[:3, 3])
 
 
 if __name__ == '__main__':

@@ -1,4 +1,4 @@
-from sympy import sin, cos, Matrix, pi, symbols, simplify
+from sympy import sin, cos, Matrix, pi, symbols, simplify, atan2
 import numpy as np
 import unittest
 
@@ -43,30 +43,6 @@ EE_2_SIX = Matrix([
 SIX_2_EE = EE_2_SIX.inv()
 
 
-def get_ee_2_wc(joints):
-    """Returns transformation from End Effect to Wrist Center reference frames given joints values"""
-
-    result = EE_2_SIX
-    result = dot(get_dh_transform(-pi / 2, 0.0, 0.0, joints[5]), result)
-    result = dot( get_dh_transform(pi / 2, 0.0, 0.0, joints[4]), result)
-    result = dot(get_dh_transform(0.0, 0.0, 0.0, joints[3]), result)
-    result = simplify(result)
-
-    return result
-
-
-def get_wc_2_base(joints):
-    """Returns transformation from Wrist Center to Base (or World) reference frames given joints values"""
-
-    result = get_dh_transform(pi / 2, 0.054, 1.5, pi)
-    result = dot(get_dh_transform(0.0, 1.25, 0.0, pi + joints[2]), result)
-    result = dot(get_dh_transform(-pi / 2, 0.35, 0.0, -pi / 2 + joints[1]), result)
-    result = dot(get_dh_transform(0.0, 0.0, 0.75, joints[0]), result)
-    result = simplify(result)
-
-    return result
-
-
 def get_dh_transform(alpha, a, d, theta):
     """Returns 4x4 rigid transformation matrix given Denavit-Hartenberg parameters"""
 
@@ -85,8 +61,43 @@ def get_dh_transform(alpha, a, d, theta):
 
 
 JOINTS = symbols('JOINTS0:6')
-WC_2_BASE = get_wc_2_base(JOINTS)
-EE_2_WC = get_ee_2_wc(JOINTS)
+
+
+SIX_2_FIVE = get_dh_transform(-pi / 2, 0.0, 0.0, JOINTS[5])
+FIVE_2_FOUR = get_dh_transform(pi / 2, 0.0, 0.0, JOINTS[4])
+FOUR_2_THREE_VAR = get_dh_transform(0.0, 0.0, 0.0, JOINTS[3])
+
+
+def get_ee_2_wc():
+    """Returns transformation from End Effect to Wrist Center reference frames given joints values"""
+
+    result = dot(SIX_2_FIVE, EE_2_SIX)
+    result = dot(FIVE_2_FOUR, result)
+    result = dot(FOUR_2_THREE_VAR, result)
+    result = simplify(result)
+
+    return result
+
+
+FOUR_2_THREE_CONST = get_dh_transform(pi / 2, 0.054, 1.5, pi)
+THREE_2_TWO = get_dh_transform(0.0, 1.25, 0.0, pi + JOINTS[2])
+TWO_2_ONE = get_dh_transform(-pi / 2, 0.35, 0.0, -pi / 2 + JOINTS[1])
+ONE_2_ZERO = get_dh_transform(0.0, 0.0, 0.75, JOINTS[0])
+
+
+def get_wc_2_base():
+    """Returns transformation from Wrist Center to Base (or World) reference frames given joints values"""
+
+    result = dot(THREE_2_TWO, FOUR_2_THREE_CONST)
+    result = dot(TWO_2_ONE, result)
+    result = dot(ONE_2_ZERO, result)
+    result = simplify(result)
+
+    return result
+
+
+WC_2_BASE = get_wc_2_base()
+EE_2_WC = get_ee_2_wc()
 FULL_TRANSFORM = WC_2_BASE * EE_2_WC
 
 
@@ -106,6 +117,28 @@ def get_wc_position(ee_position, ee_rotation):
     six_2_zero_array = ee_2_zero_array.dot(six_2_ee_array)
 
     return six_2_zero_array[:3, 3]
+
+
+def restore_wc_joint_0(wc_position):
+    """Generates hypothesis of JOINTS[0] from Wrist Center world position"""
+
+    n_cos_a = wc_position[0]
+    n_sin_a = wc_position[1]
+    yield { JOINTS[0] : atan2(n_sin_a, n_cos_a) }
+    yield { JOINTS[0] : atan2(-n_sin_a, -n_cos_a) }
+
+
+def restore_wc_joints_0_3(wc_position):
+    """Generates hypothesis of JOINTS[0], JOINTS[1] and JOINTS[2] from Wrist Center world position"""
+
+    for wc_joint_0 in restore_wc_joint_0(wc_position):
+        wc_joints_0_3 = {JOINTS[1] : 0.0, JOINTS[2] : 1.0}
+        wc_joints_0_3.update(wc_joint_0)
+        yield wc_joints_0_3
+
+        wc_joints_0_3 = {JOINTS[1] : 0.0, JOINTS[2] : -1.0}
+        wc_joints_0_3.update(wc_joint_0)
+        yield wc_joints_0_3
 
 
 class TestIkMethods(unittest.TestCase):
@@ -159,12 +192,13 @@ class TestIkMethods(unittest.TestCase):
         np.testing.assert_almost_equal(expected_ee_position, ee_2_base_array[:3, 3], decimal=1)
         np.testing.assert_almost_equal(expected_ee_rotation, ee_2_base_array[:3, :3], decimal=1)
 
-        np.testing.assert_almost_equal(
-            expected_wc_position,
-            get_wc_position(expected_ee_position, expected_ee_rotation),
-            decimal=1)
+        got_wc_position = get_wc_position(expected_ee_position, expected_ee_rotation)
+        np.testing.assert_almost_equal(expected_wc_position, got_wc_position, decimal=1)
 
+        for joints_0_3 in restore_wc_joints_0_3(got_wc_position):
 
+            wc_2_base_array = np.array(WC_2_BASE.evalf(subs=joints_0_3)).astype(np.float64)
+            np.testing.assert_almost_equal(got_wc_position, wc_2_base_array[:3, 3])
 
 
 if __name__ == '__main__':

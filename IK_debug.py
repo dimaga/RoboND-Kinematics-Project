@@ -37,7 +37,7 @@ def quat_2_rotation(q):
 EE_2_SIX = Matrix([
     [0.0, 0.0, 1.0, 0.0],
     [0.0, -1.0, 0.0, 0.0],
-    [1.0, 0.0, 0.0, 0.2305],
+    [1.0, 0.0, 0.0, 0.303],
     [0.0, 0.0, 0.0, 1.0],
 ])
 
@@ -126,7 +126,6 @@ def get_wc_position(ee_position, ee_rotation):
         [0.0, 0.0, 0.0, 1.0]])
 
     six_2_zero_array = ee_2_zero_array.dot(six_2_ee_array)
-
     return six_2_zero_array[:3, 3]
 
 
@@ -152,7 +151,6 @@ def restore_wc_joints_0_3(wc_position):
             1.0])
 
         wc_position_in_two = dot(ONE_2_TWO_CONST, wc_position_in_one)
-        print("wc_position_in_two", wc_position_in_two)
 
         # See Inverse Kinematics picture in README.md
         a = WC_2_THREE_LENGTH
@@ -164,25 +162,24 @@ def restore_wc_joints_0_3(wc_position):
         if cos_a_angle < -1 or cos_a_angle > 1:
             continue
 
-        a_angle = math.acos(cos_a_angle)
-
         cos_b_angle = (a**2 + c**2 - b**2) / (2*a*c)
         if cos_b_angle < -1 or cos_b_angle > 1:
             continue
 
+        a_angle = math.acos(cos_a_angle)
         b_angle = math.acos(cos_b_angle)
 
-        default_b_angle = math.atan2(WC_2_THREE_A, WC_2_THREE_D)
-        wc_angle = math.atan2(wc_position_in_two[1], wc_position_in_two[0])
+        default_b_angle = math.atan2(WC_2_THREE_D, WC_2_THREE_A)
+        wc_angle = math.atan2(wc_position_in_two[0], wc_position_in_two[1])
 
         wc_joints_0_3 = {JOINTS[1] : np.pi/2 - a_angle - wc_angle}
         wc_joints_0_3.update(wc_joint_0)
-        wc_joints_0_3.update({JOINTS[2] : b_angle - default_b_angle})
+        wc_joints_0_3.update({JOINTS[2] : default_b_angle - b_angle})
         yield wc_joints_0_3
 
         wc_joints_0_3 = {JOINTS[1] : np.pi/2 - wc_angle + a_angle}
         wc_joints_0_3.update(wc_joint_0)
-        wc_joints_0_3.update({JOINTS[2]: 0.0})
+        wc_joints_0_3.update({JOINTS[2]: default_b_angle + b_angle})
         yield wc_joints_0_3
 
 
@@ -218,6 +215,46 @@ class TestIkMethods(unittest.TestCase):
         )
 
 
+    def test_joints_zeros(self):
+
+        self.__test_kinematics(
+            expected_ee_position=[2.1529, 0.0, 1.9465],
+            expected_ee_quaternion=[0.0, -0.00014835, 0.0, 1.0],
+            expected_wc_position=[1.8499, 0.0, 1.9464],
+            expected_joints=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        )
+
+
+    def test_joint0_is_nonzero(self):
+
+        self.__test_kinematics(
+            expected_ee_position=[1.1615, 1.8127, 1.9465],
+            expected_ee_quaternion=[7.11858e-05, -0.000130158, 0.479841, 0.877356],
+            expected_wc_position=[0.99801, 1.5576, 1.9464],
+            expected_joints=[1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        )
+
+
+    def test_joint1_is_nonzero(self):
+
+        self.__test_kinematics(
+            expected_ee_position=[2.3338, 0.0, -0.1141],
+            expected_ee_quaternion=[0.0, 0.47786, 0.0, 0.87843],
+            expected_wc_position=[2.1692, 0.0, 0.14028],
+            expected_joints=[0.0, 1.0, 0.0, 0.0, 0.0, 0.0]
+        )
+
+
+    def test_joint2_is_nonzero(self):
+
+        self.__test_kinematics(
+            expected_ee_position=[1.2861, 0.0, 0.45817],
+            expected_ee_quaternion=[0.0, 0.4773, 0.0, 0.87874],
+            expected_wc_position=[1.1211, 0.0, 0.71234],
+            expected_joints=[0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
+        )
+
+
     def __test_kinematics(self, expected_ee_position, expected_ee_quaternion, expected_wc_position, expected_joints):
 
         wc_2_base_array = np.array(WC_2_BASE.evalf(subs={
@@ -233,20 +270,16 @@ class TestIkMethods(unittest.TestCase):
         ee_2_base_array = wc_2_base_array.dot(ee_2_wc_array)
         expected_ee_rotation = quat_2_rotation(expected_ee_quaternion)
 
-        np.testing.assert_almost_equal(expected_wc_position, wc_2_base_array[:3, 3], decimal=1)
-        np.testing.assert_almost_equal(expected_ee_position, ee_2_base_array[:3, 3], decimal=1)
-        np.testing.assert_almost_equal(expected_ee_rotation, ee_2_base_array[:3, :3], decimal=1)
+        np.testing.assert_almost_equal(expected_wc_position, wc_2_base_array[:3, 3], decimal=2)
+        np.testing.assert_almost_equal(expected_ee_position, ee_2_base_array[:3, 3], decimal=2)
+        np.testing.assert_almost_equal(expected_ee_rotation, ee_2_base_array[:3, :3], decimal=2)
 
         got_wc_position = get_wc_position(expected_ee_position, expected_ee_rotation)
-        np.testing.assert_almost_equal(expected_wc_position, got_wc_position, decimal=1)
+        np.testing.assert_almost_equal(expected_wc_position, got_wc_position, decimal=2)
 
         for joints_0_3 in restore_wc_joints_0_3(got_wc_position):
-
-            print("expected", expected_joints)
-            print("real", joints_0_3)
-
-            #wc_2_base_array = np.array(WC_2_BASE.evalf(subs=joints_0_3)).astype(np.float64)
-            #np.testing.assert_almost_equal(got_wc_position, wc_2_base_array[:3, 3])
+            wc_2_base_array = np.array(WC_2_BASE.evalf(subs=joints_0_3)).astype(np.float64)
+            np.testing.assert_almost_equal(got_wc_position, wc_2_base_array[:3, 3], decimal=2)
 
 
 if __name__ == '__main__':

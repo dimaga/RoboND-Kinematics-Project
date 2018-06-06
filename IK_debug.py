@@ -1,4 +1,5 @@
 from sympy import sin, cos, Matrix, pi, symbols, simplify, atan2
+from itertools import izip
 import numpy as np
 import math
 import unittest
@@ -185,13 +186,12 @@ def restore_wc_joints_0_3(wc_position):
 
 def test_dataset(class_, name, **kwargs):
     data_test_names = [x for x in dir(class_) if x.startswith("_test")]
+
     for protected_test_name in data_test_names:
-        public_test_name = "test" + protected_test_name[5:] + "_" + name
+        public_test_name = "test" +  "_" + name + protected_test_name[5:]
         protected_test = getattr(class_, protected_test_name, None)
 
-        def public_test(self):
-            protected_test(self, **kwargs)
-
+        public_test = lambda self: protected_test(self, **kwargs)
         setattr(class_, public_test_name, public_test)
 
 
@@ -204,9 +204,7 @@ class Tests(unittest.TestCase):
         expected_joints):
 
         wc_2_base_array = np.array(WC_2_BASE.evalf(subs={
-            JOINTS[0]: expected_joints[0],
-            JOINTS[1]: expected_joints[1],
-            JOINTS[2]: expected_joints[2]})).astype(np.float64)
+            JOINTS[i] : expected_joints[i] for i in xrange(3)})).astype(np.float64)
 
         np.testing.assert_almost_equal(expected_wc_position, wc_2_base_array[:3, 3], decimal=2)
 
@@ -219,13 +217,7 @@ class Tests(unittest.TestCase):
         expected_joints):
 
         ee_2_base = FULL_TRANSFORM.evalf(subs={
-            JOINTS[0]: expected_joints[0],
-            JOINTS[1]: expected_joints[1],
-            JOINTS[2]: expected_joints[2],
-            JOINTS[3]: expected_joints[3],
-            JOINTS[4]: expected_joints[4],
-            JOINTS[5]: expected_joints[5],
-        })
+            name : v for name, v in izip(JOINTS, expected_joints)})
 
         ee_2_base_array = np.array(ee_2_base).astype(np.float64)
 
@@ -233,6 +225,7 @@ class Tests(unittest.TestCase):
 
         expected_ee_rotation = quat_2_rotation(expected_ee_quaternion)
         np.testing.assert_almost_equal(expected_ee_rotation, ee_2_base_array[:3, :3], decimal=2)
+
 
 
     def _test_ik_got_wc_position(

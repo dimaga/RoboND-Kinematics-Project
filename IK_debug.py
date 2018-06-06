@@ -183,103 +183,179 @@ def restore_wc_joints_0_3(wc_position):
         yield wc_joints_0_3
 
 
-class TestIkMethods(unittest.TestCase):
+def test_dataset(class_, name, **kwargs):
+    data_test_names = [x for x in dir(class_) if x.startswith("_test")]
+    for protected_test_name in data_test_names:
+        public_test_name = "test" + protected_test_name[5:] + "_" + name
+        protected_test = getattr(class_, protected_test_name, None)
 
-    def test_1(self):
+        def public_test(self):
+            protected_test(self, **kwargs)
 
-        self.__test_kinematics(
-            expected_ee_position=[2.16135, -1.42635, 1.55109],
-            expected_ee_quaternion=[0.708611, 0.186356, -0.157931, 0.661967],
-            expected_wc_position=[1.89451, -1.44302, 1.69366],
-            expected_joints=[-0.65, 0.45, -0.36, 0.95, 0.79, 0.49]
-        )
-
-
-    def test_2(self):
-
-        self.__test_kinematics(
-            expected_ee_position=[-0.56754, 0.93663, 3.0038],
-            expected_ee_quaternion=[0.62073, 0.48318, 0.38759, 0.480629],
-            expected_wc_position=[-0.638, 0.64198, 2.9988],
-            expected_joints=[-0.79, -0.11, -2.33, 1.94, 1.14, -3.68]
-        )
+        setattr(class_, public_test_name, public_test)
 
 
-    def test_3(self):
-
-        self.__test_kinematics(
-            expected_ee_position=[-1.3863, 0.02074, 0.90986],
-            expected_ee_quaternion=[0.01735, -0.2179, 0.9025, 0.371016],
-            expected_wc_position=[-1.1669, -0.17989, 0.85137],
-            expected_joints=[-2.99, -0.12, 0.94, 4.06, 1.29, -4.12]
-        )
-
-
-    def test_joints_zeros(self):
-
-        self.__test_kinematics(
-            expected_ee_position=[2.1529, 0.0, 1.9465],
-            expected_ee_quaternion=[0.0, -0.00014835, 0.0, 1.0],
-            expected_wc_position=[1.8499, 0.0, 1.9464],
-            expected_joints=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-        )
-
-
-    def test_joint0_is_nonzero(self):
-
-        self.__test_kinematics(
-            expected_ee_position=[1.1615, 1.8127, 1.9465],
-            expected_ee_quaternion=[7.11858e-05, -0.000130158, 0.479841, 0.877356],
-            expected_wc_position=[0.99801, 1.5576, 1.9464],
-            expected_joints=[1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-        )
-
-
-    def test_joint1_is_nonzero(self):
-
-        self.__test_kinematics(
-            expected_ee_position=[2.3338, 0.0, -0.1141],
-            expected_ee_quaternion=[0.0, 0.47786, 0.0, 0.87843],
-            expected_wc_position=[2.1692, 0.0, 0.14028],
-            expected_joints=[0.0, 1.0, 0.0, 0.0, 0.0, 0.0]
-        )
-
-
-    def test_joint2_is_nonzero(self):
-
-        self.__test_kinematics(
-            expected_ee_position=[1.2861, 0.0, 0.45817],
-            expected_ee_quaternion=[0.0, 0.4773, 0.0, 0.87874],
-            expected_wc_position=[1.1211, 0.0, 0.71234],
-            expected_joints=[0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
-        )
-
-
-    def __test_kinematics(self, expected_ee_position, expected_ee_quaternion, expected_wc_position, expected_joints):
+class Tests(unittest.TestCase):
+    def _test_fk_wc_2_base(
+        self,
+        expected_ee_position,
+        expected_ee_quaternion,
+        expected_wc_position,
+        expected_joints):
 
         wc_2_base_array = np.array(WC_2_BASE.evalf(subs={
             JOINTS[0]: expected_joints[0],
             JOINTS[1]: expected_joints[1],
             JOINTS[2]: expected_joints[2]})).astype(np.float64)
 
-        ee_2_wc_array = np.array(EE_2_WC.evalf(subs={
+        np.testing.assert_almost_equal(expected_wc_position, wc_2_base_array[:3, 3], decimal=2)
+
+
+    def _test_fk_ee_2_base(
+        self,
+        expected_ee_position,
+        expected_ee_quaternion,
+        expected_wc_position,
+        expected_joints):
+
+        ee_2_base = FULL_TRANSFORM.evalf(subs={
+            JOINTS[0]: expected_joints[0],
+            JOINTS[1]: expected_joints[1],
+            JOINTS[2]: expected_joints[2],
             JOINTS[3]: expected_joints[3],
             JOINTS[4]: expected_joints[4],
-            JOINTS[5]: expected_joints[5]})).astype(np.float64)
+            JOINTS[5]: expected_joints[5],
+        })
 
-        ee_2_base_array = wc_2_base_array.dot(ee_2_wc_array)
-        expected_ee_rotation = quat_2_rotation(expected_ee_quaternion)
+        ee_2_base_array = np.array(ee_2_base).astype(np.float64)
 
-        np.testing.assert_almost_equal(expected_wc_position, wc_2_base_array[:3, 3], decimal=2)
         np.testing.assert_almost_equal(expected_ee_position, ee_2_base_array[:3, 3], decimal=2)
+
+        expected_ee_rotation = quat_2_rotation(expected_ee_quaternion)
         np.testing.assert_almost_equal(expected_ee_rotation, ee_2_base_array[:3, :3], decimal=2)
 
+
+    def _test_ik_got_wc_position(
+        self,
+        expected_ee_position,
+        expected_ee_quaternion,
+        expected_wc_position,
+        expected_joints):
+
+        expected_ee_rotation = quat_2_rotation(expected_ee_quaternion)
         got_wc_position = get_wc_position(expected_ee_position, expected_ee_rotation)
         np.testing.assert_almost_equal(expected_wc_position, got_wc_position, decimal=2)
 
-        for joints_0_3 in restore_wc_joints_0_3(got_wc_position):
+
+    def _test_ik_restore_wc_joints_0_3(
+        self,
+        expected_ee_position,
+        expected_ee_quaternion,
+        expected_wc_position,
+        expected_joints):
+
+        for joints_0_3 in restore_wc_joints_0_3(expected_wc_position):
             wc_2_base_array = np.array(WC_2_BASE.evalf(subs=joints_0_3)).astype(np.float64)
-            np.testing.assert_almost_equal(got_wc_position, wc_2_base_array[:3, 3], decimal=2)
+            np.testing.assert_almost_equal(expected_wc_position, wc_2_base_array[:3, 3], decimal=2)
+
+
+test_dataset(
+    Tests,
+    "joints_zeros",
+    expected_ee_position=[2.1529, 0.0, 1.9465],
+    expected_ee_quaternion=[0.0, -0.00014835, 0.0, 1.0],
+    expected_wc_position=[1.8499, 0.0, 1.9464],
+    expected_joints=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+)
+
+
+test_dataset(
+    Tests,
+    "joint0_is_1",
+    expected_ee_position=[1.1615, 1.8127, 1.9465],
+    expected_ee_quaternion=[7.11858e-05, -0.000130158, 0.479841, 0.877356],
+    expected_wc_position=[0.99801, 1.5576, 1.9464],
+    expected_joints=[1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+)
+
+
+test_dataset(
+    Tests,
+    "joint1_is_1",
+    expected_ee_position=[2.3338, 0.0, -0.1141],
+    expected_ee_quaternion=[0.0, 0.47786, 0.0, 0.87843],
+    expected_wc_position=[2.1692, 0.0, 0.14028],
+    expected_joints=[0.0, 1.0, 0.0, 0.0, 0.0, 0.0]
+)
+
+
+test_dataset(
+    Tests,
+    "joint2_is_1",
+    expected_ee_position=[1.2861, 0.0, 0.45817],
+    expected_ee_quaternion=[0.0, 0.4773, 0.0, 0.87874],
+    expected_wc_position=[1.1211, 0.0, 0.71234],
+    expected_joints=[0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
+)
+
+
+test_dataset(
+    Tests,
+    "joint3_is_1",
+    expected_ee_position=[2.1529, 0, 1.9465],
+    expected_ee_quaternion=[0.47862, -0.00013026, 7.1004e-05, 0.87802],
+    expected_wc_position=[1.8499, 0.0, 1.9464],
+    expected_joints=[0.0, 0.0, 0.0, 1.0, 0.0, 0.0]
+)
+
+
+test_dataset(
+    Tests,
+    "joint4_is_1",
+    expected_ee_position=[2.0135, 0.0, 1.6914],
+    expected_ee_quaternion=[0.0, 0.47952, 0.0, 0.87753],
+    expected_wc_position=[1.8499, 0.0, 1.9464],
+    expected_joints=[0.0, 0.0, 0.0, 0.0, 1.0, 0.0]
+)
+
+
+test_dataset(
+    Tests,
+    "joint5_is_1",
+    expected_ee_position=[2.1529, 0.0, 1.9465],
+    expected_ee_quaternion=[0.47862, -0.00013026, 7.10004e-05, 0.87802],
+    expected_wc_position=[1.8499, 0.0, 1.9464],
+    expected_joints=[0.0, 0.0, 0.0, 0.0, 0.0, 1.0]
+)
+
+
+test_dataset(
+    Tests,
+    "generic_1",
+    expected_ee_position=[2.16135, -1.42635, 1.55109],
+    expected_ee_quaternion=[0.708611, 0.186356, -0.157931, 0.661967],
+    expected_wc_position=[1.89451, -1.44302, 1.69366],
+    expected_joints=[-0.65, 0.45, -0.36, 0.95, 0.79, 0.49])
+
+
+test_dataset(
+    Tests,
+    "generic_2",
+    expected_ee_position=[-0.56754, 0.93663, 3.0038],
+    expected_ee_quaternion=[0.62073, 0.48318, 0.38759, 0.480629],
+    expected_wc_position=[-0.638, 0.64198, 2.9988],
+    expected_joints=[-0.79, -0.11, -2.33, 1.94, 1.14, -3.68]
+)
+
+
+test_dataset(
+    Tests,
+    "generic_3",
+    expected_ee_position=[-1.3863, 0.02074, 0.90986],
+    expected_ee_quaternion=[0.01735, -0.2179, 0.9025, 0.371016],
+    expected_wc_position=[-1.1669, -0.17989, 0.85137],
+    expected_joints=[-2.99, -0.12, 0.94, 4.06, 1.29, -4.12]
+)
 
 
 if __name__ == '__main__':

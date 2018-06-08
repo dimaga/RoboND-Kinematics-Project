@@ -1,25 +1,15 @@
-from sympy import sin, cos, Matrix, pi, symbols, simplify, atan2
+from sympy import sin, cos, Matrix, pi, symbols, simplify
 from itertools import izip
 import numpy as np
 import math
 import unittest
-from types import MethodType
 
 
 def dot(a, b):
     """Extend np.dot() to support simpy.Matrix types. This is to avoid confusion with *-operator, which does different
     when applied to different types"""
 
-    if isinstance(a, Matrix) and isinstance(b, Matrix):
-        return a * b
-
-    if not isinstance(a, np.ndarray):
-        a = np.array(a).astype(np.float64)
-
-    if not isinstance(b, np.ndarray):
-        b = np.array(b).astype(np.float64)
-
-    return a.dot(b)
+    return Matrix(a) * Matrix(b)
 
 
 def quat_2_rotation(q):
@@ -80,6 +70,7 @@ def get_ee_2_wc():
     result = simplify(result)
 
     return result
+
 
 WC_2_THREE_A = 0.054
 WC_2_THREE_D = 1.5

@@ -3,6 +3,7 @@ from itertools import izip
 import numpy as np
 import math
 import unittest
+from types import MethodType
 
 
 def dot(a, b):
@@ -110,7 +111,13 @@ def get_wc_2_base():
 
 WC_2_BASE = get_wc_2_base()
 EE_2_WC = get_ee_2_wc()
-FULL_TRANSFORM = WC_2_BASE * EE_2_WC
+
+
+def get_full_transform(joints):
+    subs = {name: v for name, v in izip(JOINTS, joints)}
+    wc_2_base_array = np.array(WC_2_BASE.evalf(subs=subs)).astype(np.float64)
+    ee_2_wc_array = np.array(EE_2_WC.evalf(subs=subs)).astype(np.float64)
+    return wc_2_base_array.dot(ee_2_wc_array)
 
 
 def get_wc_position(ee_position, ee_rotation):
@@ -184,6 +191,13 @@ def restore_wc_joints_0_3(wc_position):
         yield wc_joints_0_3
 
 
+def create_public_test(protected_test, **kwargs):
+    def public_test(self):
+        protected_test(self, **kwargs)
+
+    return public_test
+
+
 def test_dataset(class_, name, **kwargs):
     data_test_names = [x for x in dir(class_) if x.startswith("_test")]
 
@@ -191,11 +205,12 @@ def test_dataset(class_, name, **kwargs):
         public_test_name = "test" +  "_" + name + protected_test_name[5:]
         protected_test = getattr(class_, protected_test_name, None)
 
-        public_test = lambda self: protected_test(self, **kwargs)
+        public_test = create_public_test(protected_test, **kwargs)
         setattr(class_, public_test_name, public_test)
 
 
 class Tests(unittest.TestCase):
+
     def _test_fk_wc_2_base(
         self,
         expected_ee_position,
@@ -216,16 +231,11 @@ class Tests(unittest.TestCase):
         expected_wc_position,
         expected_joints):
 
-        ee_2_base = FULL_TRANSFORM.evalf(subs={
-            name : v for name, v in izip(JOINTS, expected_joints)})
-
-        ee_2_base_array = np.array(ee_2_base).astype(np.float64)
-
+        ee_2_base_array = get_full_transform(expected_joints)
         np.testing.assert_almost_equal(expected_ee_position, ee_2_base_array[:3, 3], decimal=2)
 
         expected_ee_rotation = quat_2_rotation(expected_ee_quaternion)
         np.testing.assert_almost_equal(expected_ee_rotation, ee_2_base_array[:3, :3], decimal=2)
-
 
 
     def _test_ik_got_wc_position(

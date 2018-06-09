@@ -184,10 +184,11 @@ def restore_wc_joints_0_3(wc_position):
 def restore_ee_joints_3_6(wc_2_base_rot, ee_2_base_rot):
     ee_2_wc_rot = dot(wc_2_base_rot.T, ee_2_base_rot)
 
-    possible_j4 = math.acos(max(min(ee_2_wc_rot[2, 0], 1.0), -1.0))
+    cos_j4 = max(min(ee_2_wc_rot[2, 0], 1.0), -1.0)
+    possible_j4 = math.acos(cos_j4)
     possible_sin_j4 = math.sin(possible_j4)
 
-    if abs(possible_sin_j4) > 1e-5:
+    if abs(possible_sin_j4) > 1e-10:
         for j4, sin_j4 in ((possible_j4, possible_sin_j4), (-possible_j4, -possible_sin_j4)):
             sin_j3 = ee_2_wc_rot[1, 0] / -sin_j4
             cos_j3 = ee_2_wc_rot[0, 0] / -sin_j4
@@ -199,7 +200,16 @@ def restore_ee_joints_3_6(wc_2_base_rot, ee_2_base_rot):
             j5 = math.atan2(sin_j5, cos_j5)
 
             yield {JOINTS[3]: j3, JOINTS[4]: j4, JOINTS[5]: j5}
+    else:
+        j4 = possible_j4
 
+        j5 = 0.0
+
+        sin_j3 = ee_2_wc_rot[0, 1]
+        cos_j3 = -ee_2_wc_rot[1, 1]
+        j3 = math.atan2(sin_j3, cos_j3)
+
+        yield {JOINTS[3]: j3, JOINTS[4]: j4, JOINTS[5]: j5}
 
 
 def create_public_test(protected_test, **kwargs):
@@ -220,7 +230,7 @@ def test_dataset(class_, name, **kwargs):
         setattr(class_, public_test_name, public_test)
 
 
-class Tests(unittest.TestCase):
+class TestGeneric(unittest.TestCase):
 
     def _test_fk_wc_2_base(
         self,
@@ -294,8 +304,6 @@ class Tests(unittest.TestCase):
 
                 ee_2_base_array = get_full_transform(joints_all)
                 np.testing.assert_almost_equal(expected_ee_position, ee_2_base_array[:3, 3], decimal=2)
-
-                expected_ee_rotation = quat_2_rotation(expected_ee_quaternion)
                 np.testing.assert_almost_equal(expected_ee_rotation, ee_2_base_array[:3, :3], decimal=2)
 
                 num_solutions += 1
@@ -304,7 +312,7 @@ class Tests(unittest.TestCase):
 
 
 test_dataset(
-    Tests,
+    TestGeneric,
     "joints_zeros",
     expected_ee_position=[2.1529, 0.0, 1.9465],
     expected_ee_quaternion=[0.0, -0.00014835, 0.0, 1.0],
@@ -314,67 +322,67 @@ test_dataset(
 
 
 test_dataset(
-    Tests,
-    "joint0_is_half_pi",
+    TestGeneric,
+    "joint0_is_1",
     expected_ee_position=[1.1615, 1.8127, 1.9465],
     expected_ee_quaternion=[7.11858e-05, -0.000130158, 0.479841, 0.877356],
     expected_wc_position=[0.99801, 1.5576, 1.9464],
-    expected_joints=[np.pi*0.5, 0.0, 0.0, 0.0, 0.0, 0.0]
+    expected_joints=[1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 )
 
 
 test_dataset(
-    Tests,
-    "joint1_is_half_pi",
+    TestGeneric,
+    "joint1_is_1",
     expected_ee_position=[2.3338, 0.0, -0.1141],
     expected_ee_quaternion=[0.0, 0.47786, 0.0, 0.87843],
     expected_wc_position=[2.1692, 0.0, 0.14028],
-    expected_joints=[0.0, np.pi*0.5, 0.0, 0.0, 0.0, 0.0]
+    expected_joints=[0.0, 1.0, 0.0, 0.0, 0.0, 0.0]
 )
 
 
 test_dataset(
-    Tests,
-    "joint2_is_half_pi",
+    TestGeneric,
+    "joint2_is_1",
     expected_ee_position=[1.2861, 0.0, 0.45817],
     expected_ee_quaternion=[0.0, 0.4773, 0.0, 0.87874],
     expected_wc_position=[1.1211, 0.0, 0.71234],
-    expected_joints=[0.0, 0.0, np.pi*0.5, 0.0, 0.0, 0.0]
+    expected_joints=[0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
 )
 
 
 test_dataset(
-    Tests,
-    "joint3_is_half_pi",
+    TestGeneric,
+    "joint3_is_1",
     expected_ee_position=[2.1529, 0, 1.9465],
     expected_ee_quaternion=[0.47862, -0.00013026, 7.1004e-05, 0.87802],
     expected_wc_position=[1.8499, 0.0, 1.9464],
-    expected_joints=[0.0, 0.0, 0.0, np.pi*0.5, 0.0, 0.0]
+    expected_joints=[0.0, 0.0, 0.0, 1.0, 0.0, 0.0]
 )
 
 
 test_dataset(
-    Tests,
+    TestGeneric,
     "joint4_is_1",
     expected_ee_position=[2.0135, 0.0, 1.6914],
     expected_ee_quaternion=[0.0, 0.47952, 0.0, 0.87753],
     expected_wc_position=[1.8499, 0.0, 1.9464],
-    expected_joints=[0.0, 0.0, 0.0, 0.0, np.pi*0.5, 0.0]
+    expected_joints=[0.0, 0.0, 0.0, 0.0, 1.0, 0.0]
 )
 
 
 test_dataset(
-    Tests,
-    "joint5_is_half_pi",
+    TestGeneric,
+    "joint5_is_1",
     expected_ee_position=[2.1529, 0.0, 1.9465],
     expected_ee_quaternion=[0.47862, -0.00013026, 7.10004e-05, 0.87802],
     expected_wc_position=[1.8499, 0.0, 1.9464],
-    expected_joints=[0.0, 0.0, 0.0, 0.0, 0.0, np.pi*0.5]
+    expected_joints=[0.0, 0.0, 0.0, 0.0, 0.0, 1.0]
 )
 
 
 test_dataset(
-    Tests,
+    TestGeneric,
     "generic_1",
     expected_ee_position=[2.16135, -1.42635, 1.55109],
     expected_ee_quaternion=[0.708611, 0.186356, -0.157931, 0.661967],
@@ -383,7 +391,7 @@ test_dataset(
 
 
 test_dataset(
-    Tests,
+    TestGeneric,
     "generic_2",
     expected_ee_position=[-0.56754, 0.93663, 3.0038],
     expected_ee_quaternion=[0.62073, 0.48318, 0.38759, 0.480629],
@@ -393,12 +401,93 @@ test_dataset(
 
 
 test_dataset(
-    Tests,
+    TestGeneric,
     "generic_3",
     expected_ee_position=[-1.3863, 0.02074, 0.90986],
     expected_ee_quaternion=[0.01735, -0.2179, 0.9025, 0.371016],
     expected_wc_position=[-1.1669, -0.17989, 0.85137],
     expected_joints=[-2.99, -0.12, 0.94, 4.06, 1.29, -4.12]
+)
+
+
+class TestIk(unittest.TestCase):
+
+    def _test(self, joints):
+
+        named_joints = {name: v for name, v in izip(JOINTS, joints)}
+        expected_ee_2_base_array = get_full_transform(named_joints)
+
+        num_solutions = 0
+
+        expected_wc_2_base_array = np.array(WC_2_BASE.evalf(subs=named_joints)).astype(np.float64)
+
+        for joints_0_3 in restore_wc_joints_0_3(expected_wc_2_base_array[:3, 3]):
+            wc_2_base_array = np.array(WC_2_BASE.evalf(subs=joints_0_3)).astype(np.float64)
+
+            for joints_all in restore_ee_joints_3_6(wc_2_base_array[:3, :3], expected_ee_2_base_array[:3, :3]):
+                joints_all.update(joints_0_3)
+
+                ee_2_base_array = get_full_transform(joints_all)
+                np.testing.assert_almost_equal(expected_ee_2_base_array, ee_2_base_array, decimal=2)
+
+                num_solutions += 1
+
+        self.assertGreater(num_solutions, 0)
+
+
+test_dataset(
+    TestIk,
+    "joints_zeros",
+    joints=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+)
+
+
+test_dataset(
+    TestIk,
+    "joint0_is_half_pi",
+    joints=[np.pi*0.5, 0.0, 0.0, 0.0, 0.0, 0.0]
+)
+
+
+test_dataset(
+    TestIk,
+    "joint1_is_half_pi",
+    joints=[0.0, np.pi*0.5, 0.0, 0.0, 0.0, 0.0]
+)
+
+
+test_dataset(
+    TestIk,
+    "joint2_is_half_pi",
+    joints=[0.0, 0.0, np.pi*0.5, 0.0, 0.0, 0.0]
+)
+
+
+test_dataset(
+    TestIk,
+    "joint3_is_half_pi",
+    joints=[0.0, 0.0, 0.0, np.pi*0.5, 0.0, 0.0]
+)
+
+
+test_dataset(
+    TestIk,
+    "joint4_is_half_pi",
+    joints=[0.0, 0.0, 0.0, 0.0, np.pi*0.5, 0.0]
+)
+
+
+test_dataset(
+    TestIk,
+    "joint5_is_half_pi",
+    joints=[0.0, 0.0, 0.0, 0.0, 0.0, np.pi*0.5]
+)
+
+
+test_dataset(
+    TestIk,
+    "joint4_is_half_pi_others_nonzero",
+    joints=[0.1, 0.2, 0.3, 0.4, np.pi*0.5, 0.5]
 )
 
 

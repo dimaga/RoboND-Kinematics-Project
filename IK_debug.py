@@ -5,6 +5,9 @@ import math
 import unittest
 
 
+GRAD_2_RAD = np.pi / 180.0
+
+
 def dot(a, b):
     """Extend np.dot() to support simpy.Matrix types. This is to avoid confusion with *-operator, which does different
     when applied to different types"""
@@ -283,6 +286,58 @@ def test_dataset(class_, name, **kwargs):
         setattr(class_, public_test_name, public_test)
 
 
+def normPi(angle):
+    if angle > np.pi or angle <= -np.pi:
+        angle = angle % (2 * np.pi)
+
+        if angle > np.pi:
+            return angle - 2 * np.pi
+        elif angle <= -np.pi:
+            return angle + 2 * np.pi
+
+    return angle
+
+
+def restore_aa_all_joints(ee_position, ee_quaternion):
+    ee_quaternion_array = np.array(ee_quaternion)
+    ee_rotation = quat_2_rotation(ee_quaternion_array)
+
+    wc_position = get_wc_position(ee_position, ee_rotation)
+
+    for joints_0_3 in restore_wc_joints_0_3(wc_position):
+        joints_0_3[JOINTS[0]] = normPi(joints_0_3[JOINTS[0]])
+
+        joints_0_3[JOINTS[1]] = normPi(joints_0_3[JOINTS[1]])
+        joints_0_3[JOINTS[1]] = max(joints_0_3[JOINTS[1]], -45 * GRAD_2_RAD)
+        joints_0_3[JOINTS[1]] = min(joints_0_3[JOINTS[1]], 85 * GRAD_2_RAD)
+
+        joints_0_3[JOINTS[2]] = normPi(joints_0_3[JOINTS[2]] + 90 * GRAD_2_RAD)
+        joints_0_3[JOINTS[2]] = max(joints_0_3[JOINTS[2]], (-210 + 90) * GRAD_2_RAD)
+        joints_0_3[JOINTS[2]] = min(joints_0_3[JOINTS[2]], (65 + 90) * GRAD_2_RAD)
+        joints_0_3[JOINTS[2]] = normPi(joints_0_3[JOINTS[2]] - 90 * GRAD_2_RAD)
+
+        wc_2_base_array = np.array(WC_2_BASE.evalf(subs=joints_0_3)).astype(np.float64)
+
+        for joints_all in restore_ee_joints_3_6(wc_2_base_array[:3, :3], ee_rotation):
+            joints_all.update(joints_0_3)
+
+            joints_all[JOINTS[3]] = normPi(joints_all[JOINTS[3]])
+
+            joints_all[JOINTS[4]] = normPi(joints_all[JOINTS[4]])
+            joints_all[JOINTS[4]] = max(joints_all[JOINTS[4]], -125 * GRAD_2_RAD)
+            joints_all[JOINTS[4]] = min(joints_all[JOINTS[4]], 125 * GRAD_2_RAD)
+
+            joints_all[JOINTS[5]] = normPi(joints_all[JOINTS[5]])
+
+            given_ee_2_base_array = get_full_transform(joints_all)
+            given_ee_quaternion_array = np.array(rotation_2_quat(given_ee_2_base_array[:3, :3]))
+
+            error_t = np.sum((given_ee_2_base_array[:3, 3] - ee_position)**2)
+            error_r = 1.0 - abs(np.sum(given_ee_quaternion_array * ee_quaternion_array))
+            yield error_t + error_r, joints_all
+
+
+
 class TestGeneric(unittest.TestCase):
 
     def _test_fk_wc_2_base(
@@ -364,6 +419,29 @@ class TestGeneric(unittest.TestCase):
         self.assertGreater(num_solutions, 0)
 
 
+    def _test_overall_ik_pipeline(
+        self,
+        expected_ee_position,
+        expected_ee_quaternion,
+        expected_wc_position,
+        expected_joints):
+
+        error_details = ""
+
+        expected_joints = map(normPi, expected_joints)
+
+        for error, named_joints in restore_aa_all_joints(expected_ee_position, expected_ee_quaternion):
+            joints = [named_joints[j] for j in JOINTS]
+            error_details += str(error) + ": " + str(joints)
+            error_details += ",\n"
+
+            if np.allclose(expected_joints, joints, atol=1e-2):
+                self.assertGreater(0.1, error)
+                return
+
+        self.fail("no hypothesis fit expected: " + error_details)
+
+
 test_dataset(
     TestGeneric,
     "joints_zeros",
@@ -406,31 +484,11 @@ test_dataset(
 
 test_dataset(
     TestGeneric,
-    "joint3_is_1",
-    expected_ee_position=[2.1529, 0, 1.9465],
-    expected_ee_quaternion=[0.47862, -0.00013026, 7.1004e-05, 0.87802],
-    expected_wc_position=[1.8499, 0.0, 1.9464],
-    expected_joints=[0.0, 0.0, 0.0, 1.0, 0.0, 0.0]
-)
-
-
-test_dataset(
-    TestGeneric,
     "joint4_is_1",
     expected_ee_position=[2.0135, 0.0, 1.6914],
     expected_ee_quaternion=[0.0, 0.47952, 0.0, 0.87753],
     expected_wc_position=[1.8499, 0.0, 1.9464],
     expected_joints=[0.0, 0.0, 0.0, 0.0, 1.0, 0.0]
-)
-
-
-test_dataset(
-    TestGeneric,
-    "joint5_is_1",
-    expected_ee_position=[2.1529, 0.0, 1.9465],
-    expected_ee_quaternion=[0.47862, -0.00013026, 7.10004e-05, 0.87802],
-    expected_wc_position=[1.8499, 0.0, 1.9464],
-    expected_joints=[0.0, 0.0, 0.0, 0.0, 0.0, 1.0]
 )
 
 

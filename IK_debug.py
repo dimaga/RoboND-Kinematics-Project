@@ -572,33 +572,33 @@ test_dataset(
 
 test_dataset(
     TestTransformations,
-    "Rot-X-90",
-    expected_quat=(1.0 / math.sqrt(2), 0.0, 0.0, 1.0 / math.sqrt(2)),
+    "Rot-X-180",
+    expected_quat=(1.0, 0.0, 0.0, 0.0),
     expected_matrix=np.array([
         [1.0, 0.0, 0.0],
-        [0.0, 0.0, -1.0],
-        [0.0, 1.0, 0.0]])
-)
-
-
-test_dataset(
-    TestTransformations,
-    "Rot-Y-90",
-    expected_quat=(0.0, 1.0 / math.sqrt(2), 0.0, 1.0 / math.sqrt(2)),
-    expected_matrix=np.array([
-        [0.0, 0.0, 1.0],
-        [0.0, 1.0, 0.0],
-        [-1.0, 0.0, 0.0]])
-)
-
-
-test_dataset(
-    TestTransformations,
-    "Rot-Z-90",
-    expected_quat=(0.0, 0.0, 1.0 / math.sqrt(2), 1.0 / math.sqrt(2)),
-    expected_matrix=np.array([
         [0.0, -1.0, 0.0],
-        [1.0, 0.0, 0.0],
+        [0.0, 0.0, -1.0]])
+)
+
+
+test_dataset(
+    TestTransformations,
+    "Rot-Y-180",
+    expected_quat=(0.0, 1.0, 0.0, 0.0),
+    expected_matrix=np.array([
+        [-1.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0],
+        [0.0, 0.0, -1.0]])
+)
+
+
+test_dataset(
+    TestTransformations,
+    "Rot-Z-180",
+    expected_quat=(0.0, 0.0, 1.0, 0.0),
+    expected_matrix=np.array([
+        [-1.0, 0.0, 0.0],
+        [0.0, -1.0, 0.0],
         [0.0, 0.0, 1.0]])
 )
 

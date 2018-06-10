@@ -226,7 +226,7 @@ def restore_wc_joints_0_3(wc_position):
         yield wc_joints_0_3
 
 
-def restore_ee_joints_3_6(wc_2_base_rot, ee_2_base_rot):
+def restore_ee_joints_3_6(wc_2_base_rot, ee_2_base_rot, closest_joints):
     """Restores last three joints using rotation matrix to euler transformation"""
 
     ee_2_wc_rot = dot(wc_2_base_rot.T, ee_2_base_rot)
@@ -235,7 +235,7 @@ def restore_ee_joints_3_6(wc_2_base_rot, ee_2_base_rot):
     possible_j4 = math.acos(cos_j4)
     possible_sin_j4 = math.sin(possible_j4)
 
-    if abs(possible_sin_j4) > 1e-10:
+    if abs(possible_sin_j4) > 1e-3:
         for j4, sin_j4 in ((possible_j4, possible_sin_j4), (-possible_j4, -possible_sin_j4)):
             sin_j3 = ee_2_wc_rot[1, 0] / -sin_j4
             cos_j3 = ee_2_wc_rot[0, 0] / -sin_j4
@@ -249,18 +249,65 @@ def restore_ee_joints_3_6(wc_2_base_rot, ee_2_base_rot):
             yield {JOINTS[3]: j3, JOINTS[4]: j4, JOINTS[5]: j5}
     else:
         # Gimble Lock case
-
         j4 = possible_j4
 
-        # There is infinite number of combinations of j3 and j5
-        # TODO: pick the values closest to previous for smooth joints tracking
-        j5 = 0.0
+        sin_j3_plus_5 = ee_2_wc_rot[0, 1]
+        cos_j3_plus_5 = -ee_2_wc_rot[1, 1]
+        j3_plus_5 = math.atan2(sin_j3_plus_5, cos_j3_plus_5)
 
-        sin_j3 = ee_2_wc_rot[0, 1]
-        cos_j3 = -ee_2_wc_rot[1, 1]
-        j3 = math.atan2(sin_j3, cos_j3)
+        yield {JOINTS[3]: j3_plus_5 - closest_joints[5], JOINTS[4]: j4, JOINTS[5]: closest_joints[5]}
+        yield {JOINTS[3]: closest_joints[3], JOINTS[4]: j4, JOINTS[5]: j3_plus_5 - closest_joints[3]}
 
-        yield {JOINTS[3]: j3, JOINTS[4]: j4, JOINTS[5]: j5}
+
+def normPi(angle):
+    if angle > np.pi or angle <= -np.pi:
+        angle = angle % (2 * np.pi)
+
+        if angle > np.pi:
+            return angle - 2 * np.pi
+        elif angle <= -np.pi:
+            return angle + 2 * np.pi
+
+    return angle
+
+
+def restore_aa_all_joints(ee_position, ee_quaternion, closest_joints):
+    ee_quaternion_array = np.array(ee_quaternion)
+    ee_rotation = quat_2_rotation(ee_quaternion_array)
+
+    wc_position = get_wc_position(ee_position, ee_rotation)
+
+    for joints_0_3 in restore_wc_joints_0_3(wc_position):
+        joints_0_3[JOINTS[0]] = normPi(joints_0_3[JOINTS[0]])
+
+        joints_0_3[JOINTS[1]] = normPi(joints_0_3[JOINTS[1]])
+        joints_0_3[JOINTS[1]] = max(joints_0_3[JOINTS[1]], -45 * GRAD_2_RAD)
+        joints_0_3[JOINTS[1]] = min(joints_0_3[JOINTS[1]], 85 * GRAD_2_RAD)
+
+        joints_0_3[JOINTS[2]] = normPi(joints_0_3[JOINTS[2]] + 90 * GRAD_2_RAD)
+        joints_0_3[JOINTS[2]] = max(joints_0_3[JOINTS[2]], (-210 + 90) * GRAD_2_RAD)
+        joints_0_3[JOINTS[2]] = min(joints_0_3[JOINTS[2]], (65 + 90) * GRAD_2_RAD)
+        joints_0_3[JOINTS[2]] = normPi(joints_0_3[JOINTS[2]] - 90 * GRAD_2_RAD)
+
+        wc_2_base_array = np.array(WC_2_BASE.evalf(subs=joints_0_3)).astype(np.float64)
+
+        for joints_all in restore_ee_joints_3_6(wc_2_base_array[:3, :3], ee_rotation, closest_joints):
+            joints_all.update(joints_0_3)
+
+            joints_all[JOINTS[3]] = normPi(joints_all[JOINTS[3]])
+
+            joints_all[JOINTS[4]] = normPi(joints_all[JOINTS[4]])
+            joints_all[JOINTS[4]] = max(joints_all[JOINTS[4]], -125 * GRAD_2_RAD)
+            joints_all[JOINTS[4]] = min(joints_all[JOINTS[4]], 125 * GRAD_2_RAD)
+
+            joints_all[JOINTS[5]] = normPi(joints_all[JOINTS[5]])
+
+            given_ee_2_base_array = get_full_transform(joints_all)
+            given_ee_quaternion_array = np.array(rotation_2_quat(given_ee_2_base_array[:3, :3]))
+
+            error_t = np.sum((given_ee_2_base_array[:3, 3] - ee_position)**2)
+            error_r = 1.0 - abs(np.sum(given_ee_quaternion_array * ee_quaternion_array))
+            yield error_t + error_r, joints_all
 
 
 def create_public_test(protected_test, **kwargs):
@@ -286,59 +333,8 @@ def test_dataset(class_, name, **kwargs):
         setattr(class_, public_test_name, public_test)
 
 
-def normPi(angle):
-    if angle > np.pi or angle <= -np.pi:
-        angle = angle % (2 * np.pi)
-
-        if angle > np.pi:
-            return angle - 2 * np.pi
-        elif angle <= -np.pi:
-            return angle + 2 * np.pi
-
-    return angle
-
-
-def restore_aa_all_joints(ee_position, ee_quaternion):
-    ee_quaternion_array = np.array(ee_quaternion)
-    ee_rotation = quat_2_rotation(ee_quaternion_array)
-
-    wc_position = get_wc_position(ee_position, ee_rotation)
-
-    for joints_0_3 in restore_wc_joints_0_3(wc_position):
-        joints_0_3[JOINTS[0]] = normPi(joints_0_3[JOINTS[0]])
-
-        joints_0_3[JOINTS[1]] = normPi(joints_0_3[JOINTS[1]])
-        joints_0_3[JOINTS[1]] = max(joints_0_3[JOINTS[1]], -45 * GRAD_2_RAD)
-        joints_0_3[JOINTS[1]] = min(joints_0_3[JOINTS[1]], 85 * GRAD_2_RAD)
-
-        joints_0_3[JOINTS[2]] = normPi(joints_0_3[JOINTS[2]] + 90 * GRAD_2_RAD)
-        joints_0_3[JOINTS[2]] = max(joints_0_3[JOINTS[2]], (-210 + 90) * GRAD_2_RAD)
-        joints_0_3[JOINTS[2]] = min(joints_0_3[JOINTS[2]], (65 + 90) * GRAD_2_RAD)
-        joints_0_3[JOINTS[2]] = normPi(joints_0_3[JOINTS[2]] - 90 * GRAD_2_RAD)
-
-        wc_2_base_array = np.array(WC_2_BASE.evalf(subs=joints_0_3)).astype(np.float64)
-
-        for joints_all in restore_ee_joints_3_6(wc_2_base_array[:3, :3], ee_rotation):
-            joints_all.update(joints_0_3)
-
-            joints_all[JOINTS[3]] = normPi(joints_all[JOINTS[3]])
-
-            joints_all[JOINTS[4]] = normPi(joints_all[JOINTS[4]])
-            joints_all[JOINTS[4]] = max(joints_all[JOINTS[4]], -125 * GRAD_2_RAD)
-            joints_all[JOINTS[4]] = min(joints_all[JOINTS[4]], 125 * GRAD_2_RAD)
-
-            joints_all[JOINTS[5]] = normPi(joints_all[JOINTS[5]])
-
-            given_ee_2_base_array = get_full_transform(joints_all)
-            given_ee_quaternion_array = np.array(rotation_2_quat(given_ee_2_base_array[:3, :3]))
-
-            error_t = np.sum((given_ee_2_base_array[:3, 3] - ee_position)**2)
-            error_r = 1.0 - abs(np.sum(given_ee_quaternion_array * ee_quaternion_array))
-            yield error_t + error_r, joints_all
-
-
-
 class TestGeneric(unittest.TestCase):
+
 
     def _test_fk_wc_2_base(
         self,
@@ -407,7 +403,7 @@ class TestGeneric(unittest.TestCase):
         for joints_0_3 in restore_wc_joints_0_3(expected_wc_position):
             wc_2_base_array = np.array(WC_2_BASE.evalf(subs=joints_0_3)).astype(np.float64)
 
-            for joints_all in restore_ee_joints_3_6(wc_2_base_array[:3, :3], expected_ee_rotation):
+            for joints_all in restore_ee_joints_3_6(wc_2_base_array[:3, :3], expected_ee_rotation, expected_joints):
                 joints_all.update(joints_0_3)
 
                 ee_2_base_array = get_full_transform(joints_all)
@@ -430,7 +426,7 @@ class TestGeneric(unittest.TestCase):
 
         expected_joints = map(normPi, expected_joints)
 
-        for error, named_joints in restore_aa_all_joints(expected_ee_position, expected_ee_quaternion):
+        for error, named_joints in restore_aa_all_joints(expected_ee_position, expected_ee_quaternion, expected_joints):
             joints = [named_joints[j] for j in JOINTS]
             error_details += str(error) + ": " + str(joints)
             error_details += ",\n"
@@ -484,11 +480,31 @@ test_dataset(
 
 test_dataset(
     TestGeneric,
+    "joint3_is_1",
+    expected_ee_position=[2.1529, 0, 1.9465],
+    expected_ee_quaternion=[0.47969, -0.00013017, 7.1163e-05, 0.87744],
+    expected_wc_position=[1.8499, 0.0, 1.9464],
+    expected_joints=[0.0, 0.0, 0.0, 1.0, 0.0, 0.0]
+)
+
+
+test_dataset(
+    TestGeneric,
     "joint4_is_1",
     expected_ee_position=[2.0135, 0.0, 1.6914],
     expected_ee_quaternion=[0.0, 0.47952, 0.0, 0.87753],
     expected_wc_position=[1.8499, 0.0, 1.9464],
     expected_joints=[0.0, 0.0, 0.0, 0.0, 1.0, 0.0]
+)
+
+
+test_dataset(
+    TestGeneric,
+    "joint5_is_1",
+    expected_ee_position=[2.1529, 0.0, 1.9465],
+    expected_ee_quaternion=[0.47862, -0.00013026, 7.10004e-05, 0.87802],
+    expected_wc_position=[1.8499, 0.0, 1.9464],
+    expected_joints=[0.0, 0.0, 0.0, 0.0, 0.0, 1.0]
 )
 
 
@@ -535,7 +551,7 @@ class TestIk(unittest.TestCase):
         for joints_0_3 in restore_wc_joints_0_3(expected_wc_2_base_array[:3, 3]):
             wc_2_base_array = np.array(WC_2_BASE.evalf(subs=joints_0_3)).astype(np.float64)
 
-            for joints_all in restore_ee_joints_3_6(wc_2_base_array[:3, :3], expected_ee_2_base_array[:3, :3]):
+            for joints_all in restore_ee_joints_3_6(wc_2_base_array[:3, :3], expected_ee_2_base_array[:3, :3], joints):
                 joints_all.update(joints_0_3)
 
                 ee_2_base_array = get_full_transform(joints_all)

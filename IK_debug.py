@@ -26,6 +26,48 @@ def quat_2_rotation(q):
     return result
 
 
+def rotation_2_quat(r):
+    """Transforms rotation matrix into a quaternion. q[3] is expected to hold real part"""
+
+    trace = r[0, 0] + r[1, 1] + r[2, 2]
+    if trace > 0:
+        s = 0.5 / math.sqrt(trace+ 1.0)
+
+        return (
+            (r[2, 1] - r[1, 2]) * s,
+            (r[0, 2] - r[2, 0]) * s,
+            (r[1, 0] - r[0, 1]) * s,
+            0.25 / s)
+
+    elif r[0, 0] > r[1, 1] and r[0, 0] > r[2, 2]:
+        s = 2.0 * math.sqrt( 1.0 + r[0, 0] - r[1, 1] - r[2, 2])
+
+        return (
+            0.25 * s,
+            (r[0, 1] + r[1, 0] ) / s,
+            (r[0, 2] + r[2, 0] ) / s,
+            (r[2, 1] - r[1, 2]) / s)
+
+
+    elif r[1, 1] > r[2, 2]:
+        s = 2.0 * math.sqrt( 1.0 + r[1, 1] - r[0, 0] - r[2, 2])
+
+        return (
+            (r[0, 1] + r[1, 0] ) / s,
+            0.25 * s,
+            (r[1, 2] + r[2, 1] ) / s,
+            (r[0, 2] - r[2, 0]) / s
+        )
+
+    s = 2.0 * math.sqrt(1.0 + r[2, 2] - r[0, 0] - r[1, 1])
+
+    return (
+        (r[0, 2] + r[2, 0] ) / s,
+        (r[1, 2] + r[2, 1] ) / s,
+        0.25 * s,
+        (r[1, 0] - r[0, 1] ) / s)
+
+
 EE_2_SIX = Matrix([
     [0.0, 0.0, 1.0, 0.0],
     [0.0, -1.0, 0.0, 0.0],
@@ -182,6 +224,8 @@ def restore_wc_joints_0_3(wc_position):
 
 
 def restore_ee_joints_3_6(wc_2_base_rot, ee_2_base_rot):
+    """Restores last three joints using rotation matrix to euler transformation"""
+
     ee_2_wc_rot = dot(wc_2_base_rot.T, ee_2_base_rot)
 
     cos_j4 = max(min(ee_2_wc_rot[2, 0], 1.0), -1.0)
@@ -201,8 +245,12 @@ def restore_ee_joints_3_6(wc_2_base_rot, ee_2_base_rot):
 
             yield {JOINTS[3]: j3, JOINTS[4]: j4, JOINTS[5]: j5}
     else:
+        # Gimble Lock case
+
         j4 = possible_j4
 
+        # There is infinite number of combinations of j3 and j5
+        # TODO: pick the values closest to previous for smooth joints tracking
         j5 = 0.0
 
         sin_j3 = ee_2_wc_rot[0, 1]
@@ -213,6 +261,8 @@ def restore_ee_joints_3_6(wc_2_base_rot, ee_2_base_rot):
 
 
 def create_public_test(protected_test, **kwargs):
+    """Returns a test method for the given data set and code"""
+
     def public_test(self):
         protected_test(self, **kwargs)
 
@@ -220,6 +270,9 @@ def create_public_test(protected_test, **kwargs):
 
 
 def test_dataset(class_, name, **kwargs):
+    """Fills unit test class_ with test methods, which is a combination of test case and code
+    being tested"""
+
     data_test_names = [x for x in dir(class_) if x.startswith("_test")]
 
     for protected_test_name in data_test_names:
@@ -491,6 +544,64 @@ test_dataset(
 )
 
 
+class TestTransformations(unittest.TestCase):
+
+    def _test_quat_2_rotation(self, expected_quat, expected_matrix):
+        matrix = quat_2_rotation(expected_quat)
+        np.testing.assert_almost_equal(expected_matrix, matrix, decimal=2)
+
+
+    def _test_rotation_2_quat(self, expected_quat, expected_matrix):
+        quat = rotation_2_quat(expected_matrix)
+        if np.dot(expected_quat, quat) < 0.0:
+            quat = (-quat[0], -quat[1], -quat[2], -quat[3])
+
+        np.testing.assert_almost_equal(expected_quat, quat, decimal=2)
+
+
+test_dataset(
+    TestTransformations,
+    "Identity",
+    expected_quat=(0.0, 0.0, 0.0, 1.0),
+    expected_matrix=np.array([
+        [1.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0],
+        [0.0, 0.0, 1.0]])
+)
+
+
+test_dataset(
+    TestTransformations,
+    "Rot-X-90",
+    expected_quat=(1.0 / math.sqrt(2), 0.0, 0.0, 1.0 / math.sqrt(2)),
+    expected_matrix=np.array([
+        [1.0, 0.0, 0.0],
+        [0.0, 0.0, -1.0],
+        [0.0, 1.0, 0.0]])
+)
+
+
+test_dataset(
+    TestTransformations,
+    "Rot-Y-90",
+    expected_quat=(0.0, 1.0 / math.sqrt(2), 0.0, 1.0 / math.sqrt(2)),
+    expected_matrix=np.array([
+        [0.0, 0.0, 1.0],
+        [0.0, 1.0, 0.0],
+        [-1.0, 0.0, 0.0]])
+)
+
+
+test_dataset(
+    TestTransformations,
+    "Rot-Z-90",
+    expected_quat=(0.0, 0.0, 1.0 / math.sqrt(2), 1.0 / math.sqrt(2)),
+    expected_matrix=np.array([
+        [0.0, -1.0, 0.0],
+        [1.0, 0.0, 0.0],
+        [0.0, 0.0, 1.0]])
+)
+
+
 if __name__ == '__main__':
     unittest.main()
-

@@ -49,6 +49,46 @@ Transformations | alpha(i-1) | a(i-1) | d(i) | theta(i)
 5->4 | pi/2 | 0 | 0 | JOINTS[4]
 6->5 | -pi/2 | 0 | 0 | JOINTS[5]
 
+Individual transformation matrices are as follows:
+
+```python
+ONE_2_ZERO = Matrix([
+    [cos(JOINTS0), -sin(JOINTS0),   0,  0.0],
+    [sin(JOINTS0),  cos(JOINTS0),   0,    0],
+    [           0,             0,   1, 0.75],
+    [         0.0,           0.0, 0.0,  1.0]])
+
+TWO_2_ONE = Matrix([
+    [0, cos(JOINTS1), -sin(JOINTS1), 0.35*cos(JOINTS1)],
+    [0, sin(JOINTS1),  cos(JOINTS1), 0.35*sin(JOINTS1)],
+    [1,            0,             0,                 0],
+    [0,            0,             0,               1.0]])
+
+THREE_2_TWO = Matrix([
+    [-cos(JOINTS2),  sin(JOINTS2),   0, 1.25],
+    [-sin(JOINTS2), -cos(JOINTS2),   0,    0],
+    [            0,             0,   1,    0],
+    [          0.0,           0.0, 0.0,  1.0]])
+
+FOUR_2_THREE = Matrix([
+    [-cos(JOINTS3),  sin(JOINTS3),  0, 0.054],
+    [            0,             0, -1,  -1.5],
+    [-sin(JOINTS3), -cos(JOINTS3),  0,     0],
+    [            0,             0,  0,   1.0]])
+
+FIVE_2_FOUR = Matrix([
+    [cos(JOINTS4), -sin(JOINTS4),   0, 0.0],
+    [           0,             0,  -1,   0],
+    [sin(JOINTS4),  cos(JOINTS4),   0,   0],
+    [         0.0,           0.0, 0.0, 1.0]])
+
+SIX_2_FIVE = Matrix([
+    [ cos(JOINTS5), -sin(JOINTS5),   0, 0.0],
+    [            0,             0,   1,   0],
+    [-sin(JOINTS5), -cos(JOINTS5),   0,   0],
+    [          0.0,           0.0, 0.0, 1.0]])
+```
+
 Transformation from gripper link to (4) in DH model calculated by sympy:
 
 ```python
@@ -132,7 +172,12 @@ Significant errors mainly occur due to JOINT-constraints, bounded by ```restore_
 
 Screenshots, corresponding to Pick and Place scenario with calculated errors, are shown below.
 
-The picking phase:
+The final placement phase: ten bins inside the target place
+
+[gazebo_final]: ./misc_images/gazebo_final.jpg
+![alt text][gazebo_final]
+
+The picking phase 1:
 
 [gazebo_pick1]: ./misc_images/gazebo_pick1.jpg
 ![alt text][gazebo_pick1]
@@ -144,7 +189,7 @@ The picking phase:
 ![alt text][translational_error_pick1]
 
 
-The placement phase:
+The placement phase 1:
 
 [gazebo_place1]: ./misc_images/gazebo_place1.jpg
 ![alt text][gazebo_place1]
@@ -154,6 +199,7 @@ The placement phase:
 
 [translational_error_place1]: ./misc_images/translational_error_place1.png
 ![alt text][translational_error_place1]
+
 
 All the forward kinematic errors (both translational and rotational) are within the range of 10**-16..10**-14, thanks
 to numpy and 64-bit float calculations. Rotational error of EE is calculated by taking an absolute value of a

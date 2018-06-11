@@ -11,13 +11,12 @@
 
 # import modules
 import rospy
-import tf
 from kuka_arm.srv import *
-from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
-from geometry_msgs.msg import Pose
+from trajectory_msgs.msg import JointTrajectoryPoint
 from mpmath import *
 import numpy as np
 import math
+import matplotlib.pyplot as plt
 
 # Replaces slow sympy with faster numpy to achieve real-time performance
 FAST_PERFORMANCE = True
@@ -390,25 +389,9 @@ def restore_aa_all_joints(ee_position, ee_quaternion, closest_joints):
             given_ee_2_base_array = get_full_transform_array(joints_all)
             given_ee_quaternion_array = np.array(rotation_2_quat(given_ee_2_base_array[:3, :3]))
 
-            error_t = np.sum((given_ee_2_base_array[:3, 3] - ee_position) ** 2)
             error_r = 1.0 - abs(np.sum(given_ee_quaternion_array * ee_quaternion_array))
-            yield error_t + error_r, joints_all
-
-
-def get_minimum_error_joints(ee_position, ee_quaternion, closest_joints):
-    """Returns joints configuration that produces minimum error"""
-
-    min_err = None
-    result = closest_joints
-
-    for err, joints in restore_aa_all_joints(ee_position, ee_quaternion, closest_joints):
-        if min_err is not None and min_err < err:
-            continue
-
-        min_err = err
-        result = joints
-
-    return min_err, result
+            error_t = np.linalg.norm(given_ee_2_base_array[:3, 3] - ee_position)
+            yield (error_r, error_t), joints_all
 
 
 def get_closest_joints(ee_position, ee_quaternion, closest_joints):
@@ -416,10 +399,14 @@ def get_closest_joints(ee_position, ee_quaternion, closest_joints):
 
     min_distance_sq = None
     result = closest_joints
-    result_err = None
+    result_error_r = None
+    result_error_t = None
 
-    for err, joints in restore_aa_all_joints(ee_position, ee_quaternion, closest_joints):
-        if err > 1e-3:
+    for (error_r, error_t), joints in restore_aa_all_joints(ee_position, ee_quaternion, closest_joints):
+        if error_r > 1e-3:
+            continue
+
+        if error_t > 1e-3:
             continue
 
         distance_sq = np.sum(np.subtract(joints, closest_joints)**2)
@@ -427,11 +414,15 @@ def get_closest_joints(ee_position, ee_quaternion, closest_joints):
             continue
 
         min_distance_sq = distance_sq
-        result_err = err
+        result_error_r = error_r
+        result_error_t = error_t
         result = joints
 
-    return result_err, result
+    return (result_error_r, result_error_t), result
 
+
+# Set True to see inverse kinematics errors
+MATPLOT_SHOW = False
 
 PREV_JOINTS = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
@@ -444,6 +435,9 @@ def handle_calculate_IK(req):
         # Initialize service response
         joint_trajectory_list = []
 
+        errors_r = []
+        errors_t = []
+
         for x in xrange(0, len(req.poses)):
             # IK code starts here
             joint_trajectory_point = JointTrajectoryPoint()
@@ -453,14 +447,23 @@ def handle_calculate_IK(req):
             ee_quaternion = (pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w)
 
             global PREV_JOINTS
-            result_err, PREV_JOINTS = get_closest_joints(ee_position, ee_quaternion, PREV_JOINTS)
+            (error_r, error_t), PREV_JOINTS = get_closest_joints(ee_position, ee_quaternion, PREV_JOINTS)
             joint_trajectory_point.positions = list(PREV_JOINTS)
-
-            print(joint_trajectory_point.positions)
 
             joint_trajectory_list.append(joint_trajectory_point)
 
+            errors_r.append(error_r)
+            errors_t.append(error_t)
+
         rospy.loginfo("length of Joint Trajectory List: %s" % len(joint_trajectory_list))
+
+        if MATPLOT_SHOW and len(errors_r) > 0 and len(errors_t) > 0:
+            plt.figure("Rotational Error, 1 - abs(dot(expected_quaternion, given_quaternion))")
+            plt.plot(errors_r)
+            plt.figure("Translational Error, meters")
+            plt.plot(errors_t)
+            plt.show()
+
         return CalculateIKResponse(joint_trajectory_list)
 
 

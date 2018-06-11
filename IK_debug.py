@@ -377,9 +377,9 @@ def restore_aa_all_joints(ee_position, ee_quaternion, closest_joints):
             given_ee_2_base_array = get_full_transform_array(joints_all)
             given_ee_quaternion_array = np.array(rotation_2_quat(given_ee_2_base_array[:3, :3]))
 
-            error_t = np.sum((given_ee_2_base_array[:3, 3] - ee_position)**2)
             error_r = 1.0 - abs(np.sum(given_ee_quaternion_array * ee_quaternion_array))
-            yield error_t + error_r, joints_all
+            error_t = np.linalg.norm(given_ee_2_base_array[:3, 3] - ee_position)
+            yield (error_r, error_t), joints_all
 
 
 def create_public_test(protected_test, **kwargs):
@@ -495,12 +495,17 @@ class TestGeneric(unittest.TestCase):
 
         expected_joints = map(normPi, expected_joints)
 
-        for error, joints in restore_aa_all_joints(expected_ee_position, expected_ee_quaternion, expected_joints):
-            error_details += str(error) + ": " + str(joints)
+        for (error_r, error_t), joints in restore_aa_all_joints(
+            expected_ee_position,
+            expected_ee_quaternion,
+            expected_joints):
+
+            error_details += str(error_r) + ", " + str(error_t) + ": " + str(joints)
             error_details += ",\n"
 
             if np.allclose(expected_joints, joints, atol=1e-2):
-                self.assertGreater(0.1, error)
+                self.assertGreater(0.01, error_r)
+                self.assertGreater(0.01, error_t)
                 return
 
         self.fail("no hypothesis fit expected: " + error_details)

@@ -411,6 +411,28 @@ def get_minimum_error_joints(ee_position, ee_quaternion, closest_joints):
     return min_err, result
 
 
+def get_closest_joints(ee_position, ee_quaternion, closest_joints):
+    """Returns joints configuration that is closest to closest_joints under some error threshold"""
+
+    min_distance_sq = None
+    result = closest_joints
+    result_err = None
+
+    for err, joints in restore_aa_all_joints(ee_position, ee_quaternion, closest_joints):
+        if err > 1e-3:
+            continue
+
+        distance_sq = np.sum(np.subtract(joints, closest_joints)**2)
+        if min_distance_sq is not None and min_distance_sq < distance_sq:
+            continue
+
+        min_distance_sq = distance_sq
+        result_err = err
+        result = joints
+
+    return result_err, result
+
+
 PREV_JOINTS = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
 def handle_calculate_IK(req):
@@ -431,7 +453,7 @@ def handle_calculate_IK(req):
             ee_quaternion = (pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w)
 
             global PREV_JOINTS
-            min_err, PREV_JOINTS = get_minimum_error_joints(ee_position, ee_quaternion, PREV_JOINTS)
+            result_err, PREV_JOINTS = get_closest_joints(ee_position, ee_quaternion, PREV_JOINTS)
             joint_trajectory_point.positions = list(PREV_JOINTS)
 
             print(joint_trajectory_point.positions)

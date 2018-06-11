@@ -459,9 +459,11 @@ def handle_calculate_IK(req):
 
         if MATPLOT_SHOW and len(errors_r) > 0 and len(errors_t) > 0:
             plt.figure()
-            plt.plot(errors_r, label="Rotational Error, 1 - abs(dot(expected_quaternion, given_quaternion))")
+            plt.title("Rotational Error, 1 - abs(dot(expected_quaternion, given_quaternion))")
+            plt.plot(errors_r)
             plt.figure()
-            plt.plot(errors_t, label="Translational Error, meters")
+            plt.title("Translational Error, meters")
+            plt.plot(errors_t)
             plt.show()
 
         return CalculateIKResponse(joint_trajectory_list)

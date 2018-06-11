@@ -81,9 +81,21 @@ And here's where you can draw out and show your math for the derivation of your 
 #### 1. Fill in the `IK_server.py` file with properly commented python code for calculating Inverse Kinematics based on previously performed Kinematic Analysis. Your code must guide the robot to successfully complete 8/10 pick and place cycles. Briefly discuss the code you implemented and your results. 
 
 
-Here I'll talk about the code, what techniques I used, what worked and why, where the implementation might fail and how I might improve it if I were going to pursue this project further.  
+[gazebo_pick1]: ./misc_images/gazebo_pick1.jpg
+![alt text][gazebo_pick1]
+
+[rotational_error_pick1]: ./misc_images/rotational_error_pick1.png
+![alt text][rotational_error_pick1]
+
+[translational_error_pick1]: ./misc_images/translational_error_pick1.png
+![alt text][translational_error_pick1]
 
 
-And just for fun, another example image:
+[gazebo_place1]: ./misc_images/gazebo_place1.jpg
+![alt text][gazebo_place1]
 
+[rotational_error_place1]: ./misc_images/rotational_error_place1.png
+![alt text][rotational_error_place1]
 
+[translational_error_place1]: ./misc_images/translational_error_place1.png
+![alt text][translational_error_place1]

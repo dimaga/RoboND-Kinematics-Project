@@ -377,7 +377,7 @@ def restore_aa_all_joints(ee_position, ee_quaternion, closest_joints):
             given_ee_2_base_array = get_full_transform_array(joints_all)
             given_ee_quaternion_array = np.array(rotation_2_quat(given_ee_2_base_array[:3, :3]))
 
-            error_r = 1.0 - abs(np.sum(given_ee_quaternion_array * ee_quaternion_array))
+            error_r = max(0.0, 1.0 - abs(np.sum(given_ee_quaternion_array * ee_quaternion_array)))
             error_t = np.linalg.norm(given_ee_2_base_array[:3, 3] - ee_position)
             yield (error_r, error_t), joints_all
 

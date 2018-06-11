@@ -174,8 +174,8 @@ Screenshots, corresponding to Pick and Place scenario with calculated errors, ar
 
 The final placement phase: ten bins inside the target place
 
-[gazebo_final]: ./misc_images/gazebo_final.png
-![alt text][gazebo_final]
+[gazebo_10.png]: ./misc_images/gazebo_10.png
+![alt text][gazebo_10.png]
 
 The picking phase 1:
 
